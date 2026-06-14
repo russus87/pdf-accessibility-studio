@@ -8,8 +8,8 @@ arch=('x86_64')
 url="https://github.com/russus87/pdf-accessibility-studio"
 license=('MIT')
 # A runtime: webkit per la finestra Tauri, gtk3 per la UI nativa.
-depends=('webkit2gtk-4.1' 'gtk3')
-makedepends=('rust' 'cargo' 'nodejs' 'npm' 'base-devel' 'curl')
+depends=('webkit2gtk-4.1' 'gtk3' 'openssl')
+makedepends=('rust' 'cargo' 'nodejs' 'npm' 'base-devel' 'curl' 'openssl')
 options=('!strip' '!lto')
 
 # Il PKGBUILD sta in packaging/, quindi la root del repo e' la cartella superiore.

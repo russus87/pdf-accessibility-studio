@@ -50,7 +50,8 @@ jobs:
             libsoup-3.0-dev \
             libappindicator3-dev \
             librsvg2-dev \
-            patchelf
+            patchelf \
+            libssl-dev
 
       # Scarica la libreria nativa Pdfium nella cartella che Tauri impacchetta
       # come risorsa (src-tauri/pdfium). A runtime l'app la cerca li'.

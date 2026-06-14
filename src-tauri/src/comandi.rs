@@ -246,6 +246,57 @@ pub fn salva_tag(
     std::fs::write(&destinazione, contenuto).map_err(|e| e.to_string())
 }
 
+// --- Suggerimento Alt con AI (Claude vision) ---------------------------------
+
+/// Stato della configurazione AI da mostrare nella UI.
+#[derive(Serialize)]
+pub struct StatoAi {
+    pub ha_chiave: bool,
+    pub modello: String,
+}
+
+/// Ritorna se la chiave API è impostata e quale modello è configurato.
+#[tauri::command]
+pub fn stato_ai(app: tauri::AppHandle) -> StatoAi {
+    let i = crate::ia::carica(&app);
+    StatoAi {
+        ha_chiave: i.anthropic_api_key.map(|k| !k.trim().is_empty()).unwrap_or(false),
+        modello: i.modello,
+    }
+}
+
+/// Salva la chiave API Anthropic (e, opzionalmente, il modello).
+#[tauri::command]
+pub fn imposta_ai(app: tauri::AppHandle, chiave: Option<String>, modello: Option<String>) -> Result<(), String> {
+    let mut i = crate::ia::carica(&app);
+    if let Some(c) = chiave {
+        i.anthropic_api_key = Some(c).filter(|s| !s.trim().is_empty());
+    }
+    if let Some(m) = modello.filter(|s| !s.trim().is_empty()) {
+        i.modello = m;
+    }
+    crate::ia::salva(&app, &i)
+}
+
+/// Suggerisce un testo alternativo per una figura, inviando l'immagine della sua
+/// pagina a Claude (vision).
+#[tauri::command]
+pub async fn suggerisci_alt(
+    app: tauri::AppHandle,
+    id: String,
+    pagina: i32,
+    stato: State<'_, StatoApp>,
+) -> Result<String, String> {
+    let i = crate::ia::carica(&app);
+    let chiave = i
+        .anthropic_api_key
+        .filter(|k| !k.trim().is_empty())
+        .ok_or("Chiave API Anthropic non impostata (vedi impostazioni AI)")?;
+    let path = percorso(&stato, &id)?;
+    let png = pdfa_core::render_pagina(&path, pagina, 1024).map_err(|e| e.to_string())?;
+    crate::ia::alt_da_immagine(&i.modello, &chiave, png).await
+}
+
 /// Nome file leggibile da un percorso.
 fn nome(p: &std::path::Path) -> String {
     p.file_name().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default()

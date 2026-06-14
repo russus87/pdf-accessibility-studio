@@ -29,3 +29,7 @@ tauri-plugin-process = "2"
 pdfa-core = { path = "../core" }
 # Le pagine renderizzate vengono inviate alla UI come PNG in base64.
 base64 = "0.22"
+# Client HTTP per le chiamate all'API Claude (suggerimento Alt con AI).
+# native-tls: usa OpenSSL su Linux, schannel su Windows, Secure Transport su mac
+# (niente cmake/nasm da configurare in CI).
+reqwest = { version = "0.12", features = ["json"] }

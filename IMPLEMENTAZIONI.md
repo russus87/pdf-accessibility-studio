@@ -107,9 +107,17 @@ Alt, cambio ruolo e riordino su un PDF taggato costruito al volo.
   tag Hn (testo+pagina dall'ordine MCID) — `core/correzione.rs::genera_segnalibri`
   + pulsante nel pannello Segnalibri. Test verificato (crea /Outlines).
 
+## Fase 11 — Suggerimento Alt con AI (Claude vision) ✅
+
+- ✅ `src-tauri/ia.rs`: chiamata raw HTTP all'API Claude (`/v1/messages`, blocco immagine
+  base64) per generare il testo alternativo di una figura. Chiave API e modello salvati
+  in locale (config dir), modello configurabile (default `claude-opus-4-8`).
+- ✅ Pannello Correzione: configurazione chiave AI + pulsante "AI" per figura che
+  compila l'Alt suggerito. Comandi `stato_ai` / `imposta_ai` / `suggerisci_alt`.
+- ✅ CI: `libssl-dev` (Linux) e `openssl` (Arch) per reqwest native-tls.
+
 ## Idee future ⏳
 
-- ⏳ Suggerimento Alt con AI (Claude vision), OCR (tesseract), contrasto colori WCAG
-- ⏳ Editor tabelle/liste avanzato, "correggi tutto" in un click
+- ⏳ OCR (tesseract) per i PDF scansionati, contrasto colori WCAG
 - ⏳ Utility PDF generali (ruota/riordina/elimina/unisci pagine, ricerca, stampa)
 - ⏳ Qualità app (drag&drop, file recenti, scorciatoie, tema chiaro)

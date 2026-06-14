@@ -130,6 +130,17 @@ export async function generaSegnalibri(id) {
   return { dest: destinazione, n };
 }
 
+// --- Suggerimento Alt con AI (Claude vision) ---
+export function statoAi() {
+  return invoke("stato_ai");
+}
+export function impostaAi(chiave, modello) {
+  return invoke("imposta_ai", { chiave: chiave ?? null, modello: modello ?? null });
+}
+export function suggerisciAlt(id, pagina) {
+  return invoke("suggerisci_alt", { id, pagina });
+}
+
 /** Riordina gli elementi di primo livello (ordine di lettura) e salva una copia. */
 export async function riordina(id, ordine) {
   const destinazione = await save({

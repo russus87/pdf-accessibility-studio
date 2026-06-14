@@ -2,9 +2,44 @@
   // Correzione assistita: imposta lingua, titolo e "mostra titolo", poi salva
   // una copia corretta del PDF (l'originale resta intatto).
   import { schede } from "../lib/schede.svelte.js";
-  import { correggi, alberoTag } from "../lib/api.js";
+  import { correggi, alberoTag, statoAi, impostaAi, suggerisciAlt } from "../lib/api.js";
 
   const s = $derived(schede.schedaAttiva);
+
+  // Configurazione AI (chiave + modello) e stato per-figura.
+  let ai = $state({ ha_chiave: false, modello: "" });
+  let chiaveInput = $state("");
+  let aiEsito = $state(null);
+  let mostraAi = $state(false);
+  let aiInCorso = $state({});
+
+  $effect(() => {
+    statoAi().then((r) => (ai = r)).catch(() => {});
+  });
+
+  async function salvaAi() {
+    aiEsito = null;
+    try {
+      await impostaAi(chiaveInput || null, ai.modello || null);
+      chiaveInput = "";
+      ai = await statoAi();
+      aiEsito = "Impostazioni AI salvate.";
+    } catch (e) {
+      aiEsito = `Errore: ${e}`;
+    }
+  }
+
+  async function suggerisci(f) {
+    aiInCorso[f.riferimento] = true;
+    aiEsito = null;
+    try {
+      altValori[f.riferimento] = await suggerisciAlt(s.id, f.pagina ?? 0);
+    } catch (e) {
+      aiEsito = `AI: ${e}`;
+    } finally {
+      aiInCorso[f.riferimento] = false;
+    }
+  }
 
   let lang = $state("it-IT");
   let titolo = $state("");
@@ -127,17 +162,36 @@
 
   {#if figure.length}
     <div class="figure">
-      <div class="titolo-sez">Testo alternativo immagini ({figure.length})</div>
+      <div class="titolo-sez">
+        Testo alternativo immagini ({figure.length})
+        <button class="ai-cfg" onclick={() => (mostraAi = !mostraAi)}>
+          {ai.ha_chiave ? "AI attiva ✓" : "Configura AI"}
+        </button>
+      </div>
+
+      {#if mostraAi}
+        <div class="ai-box">
+          <p>La chiave Anthropic è salvata in locale e usata per suggerire i testi alternativi.</p>
+          <input type="password" bind:value={chiaveInput} placeholder={ai.ha_chiave ? "•••• (già impostata, scrivi per sostituire)" : "sk-ant-…"} />
+          <input type="text" bind:value={ai.modello} placeholder="Modello (es. claude-opus-4-8 o claude-haiku-4-5)" />
+          <button class="vai" onclick={salvaAi}>Salva chiave/modello</button>
+        </div>
+      {/if}
+
       {#each figure as f, i}
         <label class="alt">
           <span class="capo">
             Figura {i + 1}
             {#if f.pagina != null}<button class="vai" onclick={() => schede.vaiAPagina(f.pagina)}>pag. {f.pagina + 1}</button>{/if}
             {#if !f.altAttuale}<span class="manca">manca</span>{/if}
+            <button class="ai" disabled={!ai.ha_chiave || aiInCorso[f.riferimento]} onclick={() => suggerisci(f)} title="Suggerisci con l'AI">
+              {aiInCorso[f.riferimento] ? "…" : "AI"}
+            </button>
           </span>
           <input type="text" bind:value={altValori[f.riferimento]} placeholder="Descrizione dell'immagine" />
         </label>
       {/each}
+      {#if aiEsito}<p class="ai-esito">{aiEsito}</p>{/if}
     </div>
   {/if}
 
@@ -217,6 +271,52 @@
     border-radius: 10px;
     padding: 1px 8px;
     font-size: 11px;
+  }
+  .titolo-sez {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .ai-cfg,
+  .ai {
+    background: #2d2440;
+    color: #c9b6f0;
+    border: 1px solid #4a3f63;
+    border-radius: 10px;
+    padding: 1px 9px;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .ai:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+  .ai-box {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    background: var(--scheda);
+    border: 1px solid var(--bordo);
+    border-radius: 8px;
+    padding: 10px;
+  }
+  .ai-box p {
+    margin: 0;
+    font-size: 12px;
+    color: var(--testo-soft);
+  }
+  .ai-box input {
+    background: var(--sfondo);
+    color: var(--testo);
+    border: 1px solid var(--bordo);
+    border-radius: 6px;
+    padding: 6px 8px;
+  }
+  .ai-esito {
+    margin: 0;
+    font-size: 12px;
+    color: #c9b6f0;
   }
   label {
     display: flex;

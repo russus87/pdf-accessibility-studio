@@ -2,6 +2,7 @@
 //! registrazione dei comandi.
 
 mod comandi;
+mod ia;
 mod stato;
 
 use std::path::PathBuf;
@@ -69,6 +70,9 @@ pub fn run() {
             comandi::correggi,
             comandi::genera_segnalibri,
             comandi::riordina,
+            comandi::stato_ai,
+            comandi::imposta_ai,
+            comandi::suggerisci_alt,
         ])
         .run(tauri::generate_context!())
         .expect("errore nell'avvio di PDF Accessibility Studio");
