@@ -76,6 +76,11 @@ pub fn run() {
             comandi::ocr_info,
             comandi::esegui_ocr,
             comandi::contrasto,
+            comandi::ruota_pagine,
+            comandi::elimina_pagine,
+            comandi::estrai_pagine,
+            comandi::riordina_pagine,
+            comandi::unisci_pdf,
         ])
         .run(tauri::generate_context!())
         .expect("errore nell'avvio di PDF Accessibility Studio");

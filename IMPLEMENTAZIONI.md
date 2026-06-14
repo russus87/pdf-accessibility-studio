@@ -135,7 +135,13 @@ Alt, cambio ruolo e riordino su un PDF taggato costruito al volo.
 
 - ✅ Apertura PDF via **drag & drop** nella finestra (`App.svelte`, evento Tauri).
 
+## Fase 15 — Operazioni sulle pagine ✅
+
+- ✅ `core/pagine.rs` (lopdf): **ruota / elimina / estrai / riordina / unisci** PDF;
+  ogni operazione salva una copia. Test: elimina 3→2, estrai→2, riordina→3, unisci 3+2→5, ruota→90°.
+- ✅ Pannello "Pagine": griglia con selezione (ruota/elimina/estrai/unisci) e modalità riordina.
+
 ## Idee future ⏳
 
-- ⏳ Utility PDF generali (ruota/riordina/elimina/unisci pagine, ricerca, stampa)
+- ⏳ Ricerca testo nel documento, stampa
 - ⏳ Qualità app (file recenti, scorciatoie, tema chiaro)

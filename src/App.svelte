@@ -28,10 +28,11 @@
   import PannelloSegnalibri from "./components/PannelloSegnalibri.svelte";
   import LettoreVocale from "./components/LettoreVocale.svelte";
   import PannelloCorrezione from "./components/PannelloCorrezione.svelte";
+  import PannelloPagine from "./components/PannelloPagine.svelte";
   import Confronto from "./components/Confronto.svelte";
 
   const lateralePannello = $derived(
-    ["valida", "indice", "tag", "leggi", "correggi"].includes(schede.pannello) ? schede.pannello : null,
+    ["valida", "indice", "tag", "leggi", "correggi", "pagine"].includes(schede.pannello) ? schede.pannello : null,
   );
 </script>
 
@@ -60,7 +61,8 @@
           {:else if lateralePannello === "indice"}<PannelloSegnalibri />
           {:else if lateralePannello === "tag"}<PannelloTag />
           {:else if lateralePannello === "leggi"}<LettoreVocale />
-          {:else if lateralePannello === "correggi"}<PannelloCorrezione />{/if}
+          {:else if lateralePannello === "correggi"}<PannelloCorrezione />
+          {:else if lateralePannello === "pagine"}<PannelloPagine />{/if}
         </aside>
       {/if}
     </div>

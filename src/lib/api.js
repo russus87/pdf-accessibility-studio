@@ -37,6 +37,44 @@ export function contrasto(id, pagina) {
   return invoke("contrasto", { id, pagina });
 }
 
+// --- Operazioni sulle pagine ---
+async function salvaPdf(nome) {
+  return save({ defaultPath: nome, filters: [{ name: "PDF", extensions: ["pdf"] }] });
+}
+export async function ruotaPagine(id, pagine, gradi) {
+  const destinazione = await salvaPdf("ruotato.pdf");
+  if (!destinazione) return null;
+  await invoke("ruota_pagine", { id, pagine, gradi, destinazione });
+  return destinazione;
+}
+export async function eliminaPagine(id, pagine) {
+  const destinazione = await salvaPdf("modificato.pdf");
+  if (!destinazione) return null;
+  await invoke("elimina_pagine", { id, pagine, destinazione });
+  return destinazione;
+}
+export async function estraiPagine(id, pagine) {
+  const destinazione = await salvaPdf("estratto.pdf");
+  if (!destinazione) return null;
+  await invoke("estrai_pagine", { id, pagine, destinazione });
+  return destinazione;
+}
+export async function riordinaPagine(id, ordine) {
+  const destinazione = await salvaPdf("riordinato.pdf");
+  if (!destinazione) return null;
+  await invoke("riordina_pagine", { id, ordine, destinazione });
+  return destinazione;
+}
+export async function unisciPdf(id) {
+  const scelta = await open({ multiple: true, filters: [{ name: "PDF", extensions: ["pdf"] }] });
+  if (!scelta) return null;
+  const altri = Array.isArray(scelta) ? scelta : [scelta];
+  const destinazione = await salvaPdf("unito.pdf");
+  if (!destinazione) return null;
+  await invoke("unisci_pdf", { id, altri, destinazione });
+  return destinazione;
+}
+
 // --- OCR ---
 export function ocrInfo() {
   return invoke("ocr_info");

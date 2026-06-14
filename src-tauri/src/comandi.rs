@@ -297,6 +297,41 @@ pub async fn suggerisci_alt(
     crate::ia::alt_da_immagine(&i.modello, &chiave, png).await
 }
 
+// --- Operazioni sulle pagine -------------------------------------------------
+
+#[tauri::command]
+pub fn ruota_pagine(id: String, pagine: Vec<u32>, gradi: i64, destinazione: String, stato: State<StatoApp>) -> Result<(), String> {
+    let path = percorso(&stato, &id)?;
+    pdfa_core::pagine::ruota(&path, std::path::Path::new(&destinazione), &pagine, gradi).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn elimina_pagine(id: String, pagine: Vec<u32>, destinazione: String, stato: State<StatoApp>) -> Result<(), String> {
+    let path = percorso(&stato, &id)?;
+    pdfa_core::pagine::elimina(&path, std::path::Path::new(&destinazione), &pagine).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn estrai_pagine(id: String, pagine: Vec<u32>, destinazione: String, stato: State<StatoApp>) -> Result<(), String> {
+    let path = percorso(&stato, &id)?;
+    pdfa_core::pagine::estrai(&path, std::path::Path::new(&destinazione), &pagine).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn riordina_pagine(id: String, ordine: Vec<u32>, destinazione: String, stato: State<StatoApp>) -> Result<(), String> {
+    let path = percorso(&stato, &id)?;
+    pdfa_core::pagine::riordina(&path, std::path::Path::new(&destinazione), &ordine).map_err(|e| e.to_string())
+}
+
+/// Unisce il documento corrente con altri PDF (percorsi assoluti) in ordine.
+#[tauri::command]
+pub fn unisci_pdf(id: String, altri: Vec<String>, destinazione: String, stato: State<StatoApp>) -> Result<(), String> {
+    let path = percorso(&stato, &id)?;
+    let mut percorsi = vec![path];
+    percorsi.extend(altri.into_iter().map(std::path::PathBuf::from));
+    pdfa_core::pagine::unisci(&percorsi, std::path::Path::new(&destinazione)).map_err(|e| e.to_string())
+}
+
 /// Stima il contrasto colori (WCAG) di una pagina.
 #[tauri::command]
 pub fn contrasto(id: String, pagina: i32, stato: State<StatoApp>) -> Result<pdfa_core::contrasto::ContrastoPagina, String> {
