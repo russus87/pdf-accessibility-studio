@@ -88,8 +88,20 @@ Legenda: ✅ fatto · 🚧 in corso · ⏳ pianificato · ❌ fuori scope
 Test `core/tests/pipeline.rs` copre: struttura, lettura MCID, validazione,
 Alt, cambio ruolo e riordino su un PDF taggato costruito al volo.
 
+## Fase 9 — Validazione profonda ✅
+
+- ✅ Nuove regole PDF/UA + WCAG in `core/validazione.rs`:
+  ordine dei titoli (Hn senza salti, inizio da H1), struttura liste (L→LI),
+  righe tabella (Table→TR), font con `ToUnicode`, identificatore **PDF/UA** in XMP,
+  rilevamento **PDF scansionati** (nessun testo estraibile → suggerisce OCR).
+- ✅ Dati extra nel parser (`core/struttura.rs`): conteggio font/ToUnicode, flag PDF/UA.
+- ✅ **Report di validazione esportabile** in HTML e PDF — `validazione::report_html/pdf`
+  + pannello Validazione (pulsanti Report HTML/PDF).
+- ✅ Test unit (`validazione.rs`): ordine titoli, liste, PDF scansionato.
+
 ## Idee future ⏳
 
-- ⏳ Riordino anche dei sotto-livelli (oggi solo primo livello) e drag&drop
-- ⏳ Editor avanzato tabelle (scope/headers/ID), liste e note
-- ⏳ Estrazione testo MCID con font CID/ToUnicode complessi (oggi: encoding semplici)
+- ⏳ Suggerimento Alt con AI (Claude vision), OCR (tesseract), contrasto colori WCAG
+- ⏳ Editor metadati/tabelle/liste, "marca come Artifact", titoli→segnalibri, "correggi tutto"
+- ⏳ Utility PDF generali (ruota/riordina/elimina/unisci pagine, ricerca, stampa)
+- ⏳ Qualità app (drag&drop, file recenti, scorciatoie, tema chiaro)

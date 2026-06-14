@@ -1,12 +1,23 @@
 <script>
   // Pannello validazione accessibilita': mostra gli esiti delle regole.
   import { schede } from "../lib/schede.svelte.js";
-  import { valida } from "../lib/api.js";
+  import { valida, salvaReportValidazione } from "../lib/api.js";
 
   const s = $derived(schede.schedaAttiva);
   let report = $state(null);
   let caricamento = $state(false);
   let errore = $state(null);
+  let esito = $state(null);
+
+  async function esporta(formato) {
+    esito = null;
+    try {
+      const ok = await salvaReportValidazione(s.id, formato);
+      if (ok) esito = `Report ${formato.toUpperCase()} salvato.`;
+    } catch (e) {
+      esito = `Errore: ${e}`;
+    }
+  }
 
   // Rivalida quando cambia la scheda attiva.
   $effect(() => {
@@ -27,7 +38,17 @@
 </script>
 
 <div class="pannello">
-  <header><h3>Validazione accessibilità</h3></header>
+  <header>
+    <h3>Validazione accessibilità</h3>
+    {#if report}
+      <div class="azioni">
+        <button onclick={() => esporta("html")}>Report HTML</button>
+        <button onclick={() => esporta("pdf")}>Report PDF</button>
+      </div>
+    {/if}
+  </header>
+
+  {#if esito}<p class="esito">{esito}</p>{/if}
 
   {#if caricamento}
     <p class="info">Analisi in corso…</p>
@@ -64,8 +85,30 @@
     border-bottom: 1px solid var(--bordo);
   }
   h3 {
-    margin: 0;
+    margin: 0 0 8px;
     font-size: 15px;
+  }
+  .azioni {
+    display: flex;
+    gap: 6px;
+  }
+  .azioni button {
+    background: var(--scheda);
+    color: var(--testo);
+    border: 1px solid var(--bordo);
+    border-radius: 6px;
+    padding: 5px 10px;
+    cursor: pointer;
+    font-size: 12px;
+  }
+  .azioni button:hover {
+    border-color: var(--accento);
+  }
+  .esito {
+    margin: 0;
+    padding: 10px 14px;
+    color: #7ad08f;
+    font-size: 13px;
   }
   .riepilogo {
     display: flex;

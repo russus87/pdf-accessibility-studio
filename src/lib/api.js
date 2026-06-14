@@ -32,6 +32,16 @@ export function chiudiDocumento(id) {
 export function valida(id) {
   return invoke("valida", { id });
 }
+/** Chiede dove salvare ed esporta il report di validazione (html|pdf). */
+export async function salvaReportValidazione(id, formato) {
+  const destinazione = await save({
+    defaultPath: `accessibilita.${formato}`,
+    filters: [{ name: formato.toUpperCase(), extensions: [formato] }],
+  });
+  if (!destinazione) return false;
+  await invoke("salva_report_validazione", { id, formato, destinazione });
+  return true;
+}
 export function alberoTag(id) {
   return invoke("albero_tag", { id });
 }

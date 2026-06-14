@@ -46,6 +46,12 @@ pub struct InfoStruttura {
     pub titolo: Option<String>,
     /// ViewerPreferences /DisplayDocTitle (mostra il titolo nella barra).
     pub display_doc_title: Option<bool>,
+    /// Numero di font di testo trovati.
+    pub font_totali: usize,
+    /// Quanti di quei font non hanno /ToUnicode (testo non mappabile a Unicode).
+    pub font_senza_tounicode: usize,
+    /// Presenza dell'identificatore PDF/UA nei metadati XMP.
+    pub ha_pdfua_id: bool,
     /// Elementi radice dell'albero dei tag.
     pub radice: Vec<NodoTag>,
 }
@@ -63,6 +69,9 @@ pub fn analizza(percorso: &std::path::Path) -> Risultato<InfoStruttura> {
                 lang: None,
                 titolo: None,
                 display_doc_title: None,
+                font_totali: 0,
+                font_senza_tounicode: 0,
+                ha_pdfua_id: false,
                 radice: Vec::new(),
             })
         }
@@ -99,14 +108,57 @@ pub fn analizza(percorso: &std::path::Path) -> Risultato<InfoStruttura> {
         }
     }
 
+    let (font_totali, font_senza_tounicode) = statistiche_font(&doc);
+    let ha_pdfua_id = ha_pdfua_id(&doc, catalogo);
+
     Ok(InfoStruttura {
         taggato,
         ha_struct_tree,
         lang,
         titolo,
         display_doc_title,
+        font_totali,
+        font_senza_tounicode,
+        ha_pdfua_id,
         radice,
     })
+}
+
+/// Conta i font di testo e quanti sono privi di /ToUnicode (testo non mappabile).
+fn statistiche_font(doc: &Document) -> (usize, usize) {
+    let mut totali = 0;
+    let mut senza = 0;
+    for (_, obj) in doc.objects.iter() {
+        let Some(d) = obj.as_dict().ok() else { continue };
+        if d.get(b"Type").and_then(|o| o.as_name()).map(|n| n != b"Font").unwrap_or(true) {
+            continue;
+        }
+        // Solo i font di testo "di alto livello" (non i CIDFont discendenti).
+        let subtype = d.get(b"Subtype").and_then(|o| o.as_name()).unwrap_or(b"");
+        if !matches!(subtype, b"Type1" | b"TrueType" | b"Type0" | b"Type3") {
+            continue;
+        }
+        totali += 1;
+        if d.get(b"ToUnicode").is_err() {
+            senza += 1;
+        }
+    }
+    (totali, senza)
+}
+
+/// Verifica se i metadati XMP contengono l'identificatore PDF/UA (pdfuaid).
+fn ha_pdfua_id(doc: &Document, catalogo: &Dictionary) -> bool {
+    let Some(id) = catalogo.get(b"Metadata").ok().and_then(|o| o.as_reference().ok()) else {
+        return false;
+    };
+    let Ok(Object::Stream(stream)) = doc.get_object(id) else {
+        return false;
+    };
+    let contenuto = stream
+        .decompressed_content()
+        .unwrap_or_else(|_| stream.content.clone());
+    // Cerca "pdfuaid" nel testo XMP (RDF).
+    contenuto.windows(7).any(|w| w == b"pdfuaid")
 }
 
 // --- Helper di traversamento -------------------------------------------------

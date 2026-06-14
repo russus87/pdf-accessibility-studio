@@ -55,6 +55,7 @@ pub fn run() {
             comandi::render_pagina,
             comandi::chiudi_documento,
             comandi::valida,
+            comandi::salva_report_validazione,
             comandi::albero_tag,
             comandi::segnalibri,
             comandi::testo_documento,

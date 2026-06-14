@@ -94,6 +94,29 @@ pub fn valida(id: String, stato: State<StatoApp>) -> Result<pdfa_core::Report, S
     pdfa_core::valida(&path).map_err(|e| e.to_string())
 }
 
+/// Salva il report di validazione su disco in formato "html" o "pdf".
+#[tauri::command]
+pub fn salva_report_validazione(
+    id: String,
+    formato: String,
+    destinazione: String,
+    stato: State<StatoApp>,
+) -> Result<(), String> {
+    let path = percorso(&stato, &id)?;
+    let report = pdfa_core::valida(&path).map_err(|e| e.to_string())?;
+    let nome = nome(&path);
+    match formato.as_str() {
+        "pdf" => {
+            let bytes = pdfa_core::validazione::report_pdf(&nome, &report).map_err(|e| e.to_string())?;
+            std::fs::write(&destinazione, bytes).map_err(|e| e.to_string())
+        }
+        _ => {
+            let html = pdfa_core::validazione::report_html(&nome, &report);
+            std::fs::write(&destinazione, html).map_err(|e| e.to_string())
+        }
+    }
+}
+
 /// Ritorna l'albero dei tag e le info strutturali del PDF.
 #[tauri::command]
 pub fn albero_tag(id: String, stato: State<StatoApp>) -> Result<pdfa_core::InfoStruttura, String> {
