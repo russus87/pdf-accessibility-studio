@@ -32,8 +32,7 @@ nelle risorse del bundle, in `./pdfium`, infine tra le librerie di sistema.
 ## Build e release
 
 Push di un tag `vX.Y.Z` ⇒ GitHub Actions compila Windows/macOS/Linux (+ pacchetto
-Arch `.pkg.tar.zst`) e pubblica gli artefatti sul repo pubblico `-dist` con
-l'auto-update firmato. Servono i secret:
-
-- `TAURI_SIGNING_PRIVATE_KEY` (+ `..._PASSWORD`) per la firma degli update.
-- `DIST_TOKEN`: token con accesso al repo `pdf-accessibility-studio-dist`.
+Arch `.pkg.tar.zst`) e pubblica gli artefatti nella release di questo repo.
+Essendo il repo pubblico, l'auto-update firmato legge direttamente da qui (niente
+repo separato). Serve solo il secret `TAURI_SIGNING_PRIVATE_KEY` (+ `..._PASSWORD`)
+per la firma degli aggiornamenti.

@@ -41,7 +41,7 @@
   "plugins": {
     "updater": {
       "endpoints": [
-        "https://github.com/russus87/pdf-accessibility-studio-dist/releases/latest/download/latest.json"
+        "https://github.com/russus87/pdf-accessibility-studio/releases/latest/download/latest.json"
       ],
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDMzQTRBMjc3RUVDNTVCQjAKUldTd1c4WHVkNktrTThwaXc0R2I5MXFUWFFIQkgrVE1BQnV1c0ZKekRnWFJHTnFGY0dOYkNjdngK"
     }

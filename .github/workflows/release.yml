@@ -112,39 +112,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # --- Pubblica gli artefatti (e l'auto-update) sul repo pubblico -dist ---
-  # continue-on-error: senza il secret DIST_TOKEN questo job fallisce ma non deve
-  # invalidare la release principale (gli altri artefatti restano disponibili).
-  pubblica-dist:
-    runs-on: ubuntu-latest
-    needs: [build, arch]
-    continue-on-error: true
-    steps:
-      - name: Scarica gli asset dalla release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          mkdir dist-assets
-          gh release download "${GITHUB_REF_NAME}" \
-            --repo "${GITHUB_REPOSITORY}" --dir dist-assets
-
-      - name: Riscrivi gli URL di latest.json verso il repo pubblico
-        run: |
-          cd dist-assets
-          if [ -f latest.json ]; then
-            sed -i 's#/russus87/pdf-accessibility-studio/releases#/russus87/pdf-accessibility-studio-dist/releases#g' latest.json
-            echo "latest.json aggiornato:"; cat latest.json
-          else
-            echo "ATTENZIONE: latest.json non trovato"; ls -la
-          fi
-
-      - name: Pubblica su pdf-accessibility-studio-dist
-        env:
-          GH_TOKEN: ${{ secrets.DIST_TOKEN }}
-        run: |
-          cd dist-assets
-          gh release create "${GITHUB_REF_NAME}" --repo russus87/pdf-accessibility-studio-dist \
-            --title "PDF Accessibility Studio ${GITHUB_REF_NAME}" \
-            --notes "Artefatti e aggiornamenti automatici." \
-            ./* \
-          || gh release upload "${GITHUB_REF_NAME}" --repo russus87/pdf-accessibility-studio-dist --clobber ./*
+  # L'auto-update legge direttamente dalle release di questo repo (pubblico):
+  # il file latest.json generato da tauri-action ha gia' gli URL corretti, quindi
+  # non serve un repo separato ne' un token aggiuntivo.
