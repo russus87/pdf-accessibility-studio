@@ -58,6 +58,7 @@ pub fn run() {
             comandi::albero_tag,
             comandi::segnalibri,
             comandi::testo_documento,
+            comandi::blocchi_lettura,
             comandi::confronta,
             comandi::confronta_immagine,
             comandi::report_html,
@@ -65,6 +66,7 @@ pub fn run() {
             comandi::esporta_tag_stringa,
             comandi::salva_tag,
             comandi::correggi,
+            comandi::riordina,
         ])
         .run(tauri::generate_context!())
         .expect("errore nell'avvio di PDF Accessibility Studio");

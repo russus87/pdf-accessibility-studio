@@ -113,9 +113,12 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # --- Pubblica gli artefatti (e l'auto-update) sul repo pubblico -dist ---
+  # continue-on-error: senza il secret DIST_TOKEN questo job fallisce ma non deve
+  # invalidare la release principale (gli altri artefatti restano disponibili).
   pubblica-dist:
     runs-on: ubuntu-latest
     needs: [build, arch]
+    continue-on-error: true
     steps:
       - name: Scarica gli asset dalla release
         env:

@@ -117,6 +117,14 @@ pub fn testo_documento(id: String, stato: State<StatoApp>) -> Result<Vec<String>
     pdfa_core::testo_pagine(&path).map_err(|e| e.to_string())
 }
 
+/// Ritorna i blocchi di lettura nell'ordine logico dei tag (ordine MCID).
+/// Vuoto se il PDF non e' taggato: la UI ripiega sull'ordine di pagina.
+#[tauri::command]
+pub fn blocchi_lettura(id: String, stato: State<StatoApp>) -> Result<Vec<pdfa_core::lettura::BloccoLettura>, String> {
+    let path = percorso(&stato, &id)?;
+    pdfa_core::lettura::blocchi(&path).map_err(|e| e.to_string())
+}
+
 // --- Fase 4: confronto tra PDF ------------------------------------------------
 
 /// Confronto combinato testo + tag tra due schede.
@@ -229,6 +237,13 @@ pub struct AltInput {
     pub testo: String,
 }
 
+/// Un cambio di ruolo da applicare a un elemento.
+#[derive(serde::Deserialize)]
+pub struct RuoloInput {
+    pub riferimento: String,
+    pub ruolo: String,
+}
+
 /// Applica le correzioni di accessibilita' (lingua/titolo/DisplayDocTitle e Alt
 /// sulle figure) e salva una copia corretta. Non tocca l'originale.
 #[tauri::command]
@@ -238,6 +253,7 @@ pub fn correggi(
     titolo: Option<String>,
     display_doc_title: bool,
     alt: Option<Vec<AltInput>>,
+    ruoli: Option<Vec<RuoloInput>>,
     destinazione: String,
     stato: State<StatoApp>,
 ) -> Result<(), String> {
@@ -251,7 +267,25 @@ pub fn correggi(
             .into_iter()
             .map(|a| (a.riferimento, a.testo))
             .collect(),
+        ruoli: ruoli
+            .unwrap_or_default()
+            .into_iter()
+            .map(|r| (r.riferimento, r.ruolo))
+            .collect(),
     };
     pdfa_core::correzione::applica(&path, std::path::Path::new(&destinazione), &correzioni)
+        .map_err(|e| e.to_string())
+}
+
+/// Riordina gli elementi di primo livello (ordine di lettura) e salva una copia.
+#[tauri::command]
+pub fn riordina(
+    id: String,
+    ordine: Vec<String>,
+    destinazione: String,
+    stato: State<StatoApp>,
+) -> Result<(), String> {
+    let path = percorso(&stato, &id)?;
+    pdfa_core::correzione::riordina(&path, std::path::Path::new(&destinazione), &ordine)
         .map_err(|e| e.to_string())
 }

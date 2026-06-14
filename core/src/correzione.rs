@@ -20,6 +20,8 @@ pub struct Correzioni {
     /// Testo alternativo da impostare su singoli elementi: (riferimento
     /// "numero_generazione", testo Alt).
     pub alt: Vec<(String, String)>,
+    /// Nuovi ruoli (/S) da impostare su elementi: (riferimento, ruolo).
+    pub ruoli: Vec<(String, String)>,
 }
 
 /// Applica le correzioni a `origine` e salva il risultato in `destinazione`.
@@ -80,8 +82,67 @@ pub fn applica(origine: &Path, destinazione: &Path, c: &Correzioni) -> Risultato
         }
     }
 
+    // --- Cambio ruolo (/S) su singoli elementi ---
+    for (riferimento, ruolo) in &c.ruoli {
+        if ruolo.trim().is_empty() {
+            continue;
+        }
+        if let Some(id) = parse_riferimento(riferimento) {
+            if let Ok(dict) = doc.get_object_mut(id).and_then(|o| o.as_dict_mut()) {
+                dict.set("S", Object::Name(ruolo.as_bytes().to_vec()));
+            }
+        }
+    }
+
     doc.save(destinazione)
         .map_err(|e| Errore::Io(format!("salvataggio: {e}")))?;
+    Ok(())
+}
+
+/// Riordina gli elementi di primo livello dello structure tree secondo l'ordine
+/// di riferimenti dato, e salva una copia. Cambia l'ordine di lettura logico.
+pub fn riordina(origine: &Path, destinazione: &Path, ordine: &[String]) -> Risultato<()> {
+    let mut doc = Document::load(origine).map_err(|e| Errore::Pdfium(format!("lopdf: {e}")))?;
+
+    let catalog_id = doc
+        .trailer
+        .get(b"Root")
+        .and_then(|o| o.as_reference())
+        .map_err(|_| Errore::Pdfium("catalogo non trovato".into()))?;
+
+    let sr = doc
+        .get_object(catalog_id)
+        .and_then(|o| o.as_dict())
+        .and_then(|d| d.get(b"StructTreeRoot"))
+        .map_err(|_| Errore::Pdfium("StructTreeRoot non trovato".into()))?
+        .clone();
+
+    let nuovo_k: Vec<Object> = ordine
+        .iter()
+        .filter_map(|s| parse_riferimento(s))
+        .map(Object::Reference)
+        .collect();
+
+    match sr {
+        Object::Reference(id) => {
+            let d = doc
+                .get_object_mut(id)
+                .and_then(|o| o.as_dict_mut())
+                .map_err(|e| Errore::Pdfium(format!("StructTreeRoot: {e}")))?;
+            d.set("K", Object::Array(nuovo_k));
+        }
+        Object::Dictionary(mut d) => {
+            d.set("K", Object::Array(nuovo_k));
+            let cat = doc
+                .get_object_mut(catalog_id)
+                .and_then(|o| o.as_dict_mut())
+                .map_err(|e| Errore::Pdfium(format!("catalogo: {e}")))?;
+            cat.set("StructTreeRoot", Object::Dictionary(d));
+        }
+        _ => return Err(Errore::Pdfium("StructTreeRoot non valido".into())),
+    }
+
+    doc.save(destinazione).map_err(|e| Errore::Io(format!("salvataggio: {e}")))?;
     Ok(())
 }
 

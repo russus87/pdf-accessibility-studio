@@ -43,6 +43,10 @@ export function segnalibri(id) {
 export function testoDocumento(id) {
   return invoke("testo_documento", { id });
 }
+/** Blocchi di lettura in ordine logico dei tag (vuoto se non taggato). */
+export function blocchiLettura(id) {
+  return invoke("blocchi_lettura", { id });
+}
 
 // --- Fase 4: confronto ---
 export function confronta(idA, idB) {
@@ -83,7 +87,7 @@ export async function salvaTag(id, formato) {
 // --- Correzione assistita ---
 /** Chiede dove salvare la copia corretta e applica le correzioni.
  *  Ritorna il percorso salvato, oppure null se annullato. */
-export async function correggi(id, { lang, titolo, displayDocTitle, alt }) {
+export async function correggi(id, { lang, titolo, displayDocTitle, alt, ruoli }) {
   const destinazione = await save({
     defaultPath: "corretto.pdf",
     filters: [{ name: "PDF", extensions: ["pdf"] }],
@@ -95,7 +99,19 @@ export async function correggi(id, { lang, titolo, displayDocTitle, alt }) {
     titolo: titolo || null,
     displayDocTitle: !!displayDocTitle,
     alt: alt || [],
+    ruoli: ruoli || [],
     destinazione,
   });
+  return destinazione;
+}
+
+/** Riordina gli elementi di primo livello (ordine di lettura) e salva una copia. */
+export async function riordina(id, ordine) {
+  const destinazione = await save({
+    defaultPath: "riordinato.pdf",
+    filters: [{ name: "PDF", extensions: ["pdf"] }],
+  });
+  if (!destinazione) return null;
+  await invoke("riordina", { id, ordine, destinazione });
   return destinazione;
 }

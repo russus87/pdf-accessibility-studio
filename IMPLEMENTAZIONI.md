@@ -73,8 +73,23 @@ Legenda: ✅ fatto · 🚧 in corso · ⏳ pianificato · ❌ fuori scope
   il lettore intercala il testo alternativo delle figure e usa gli eventi
   `onboundary` per evidenziare la parola in lettura; opzione "fai seguire il visore".
 
+## Fase 8 — Tag avanzati ✅
+
+- ✅ **Lettura in ordine logico (MCID)**: `core/lettura.rs` parsa i content stream
+  (BDC/EMC + Tj/TJ) decodificando con i font di lopdf e ricostruisce la sequenza
+  di lettura per elemento; il lettore vocale la usa (fallback all'ordine di pagina),
+  con etichette di ruolo. Verificato dal test (estrae "Ciao mondo" da un P/MCID).
+- ✅ **Editor ruoli** (P→H1, marcare TH, ecc.): cambia `/S` sull'elemento e salva
+  una copia — `core/correzione.rs` + pannello Tag (modalità "Ruoli").
+- ✅ **Ordine di lettura editabile**: riordino degli elementi di primo livello
+  (riscrive `/K` dello StructTreeRoot) — `core/correzione.rs::riordina` + pannello
+  Tag (modalità "Riordina", frecce su/giù).
+
+Test `core/tests/pipeline.rs` copre: struttura, lettura MCID, validazione,
+Alt, cambio ruolo e riordino su un PDF taggato costruito al volo.
+
 ## Idee future ⏳
 
-- ⏳ Ordine di lettura editabile (riordino dello structure tree)
-- ⏳ Estrazione testo nell'esatto ordine MCID dei tag (oggi: ordine di pagina/contenuto)
-- ⏳ Tabelle: editor intestazioni (TH/scope); ruoli/heading correggibili dall'app
+- ⏳ Riordino anche dei sotto-livelli (oggi solo primo livello) e drag&drop
+- ⏳ Editor avanzato tabelle (scope/headers/ID), liste e note
+- ⏳ Estrazione testo MCID con font CID/ToUnicode complessi (oggi: encoding semplici)

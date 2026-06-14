@@ -3,7 +3,7 @@
   // e, dove il PDF e' taggato, intercala il testo alternativo delle immagini.
   // Evidenzia la parola in lettura (eventi onboundary) e fa seguire il visore.
   import { schede } from "../lib/schede.svelte.js";
-  import { testoDocumento, alberoTag } from "../lib/api.js";
+  import { testoDocumento, alberoTag, blocchiLettura } from "../lib/api.js";
 
   const s = $derived(schede.schedaAttiva);
   const sintesi = typeof window !== "undefined" ? window.speechSynthesis : null;
@@ -21,6 +21,7 @@
   let voceScelta = $state("");
   let velocita = $state(1);
   let seguiPagina = $state(true);
+  let ordineLogico = $state(false); // true se i blocchi vengono dai tag (MCID)
 
   function inFrasi(testo) {
     return (testo.match(/[^.!?\n]+[.!?]*/g) || []).map((t) => t.trim()).filter(Boolean);
@@ -46,31 +47,51 @@
     blocchi = [];
     indice = 0;
 
-    Promise.all([testoDocumento(id), alberoTag(id).catch(() => null)])
-      .then(([pagine, info]) => {
+    // Prima prova l'ordine logico dei tag (MCID); se vuoto, ripiega sull'ordine
+    // di pagina (testo + Alt delle immagini intercalate).
+    blocchiLettura(id)
+      .then((tag) => {
         if (annullato) return;
-        // Mappa pagina -> testi Alt delle figure.
-        const altPerPagina = {};
-        if (info) {
-          const cammina = (nodi) => {
-            for (const n of nodi) {
-              if (n.ruolo === "Figure" && n.alt && n.pagina != null) {
-                (altPerPagina[n.pagina] ||= []).push(n.alt);
-              }
-              cammina(n.figli);
-            }
-          };
-          cammina(info.radice);
+        if (tag && tag.length) {
+          ordineLogico = true;
+          blocchi = tag.flatMap((b) => {
+            const tipo = b.ruolo === "Figure" ? "immagine" : "testo";
+            // spezza i blocchi lunghi in frasi per un'evidenziazione piu' fine
+            const frasi = tipo === "immagine" ? [b.testo] : inFrasi(b.testo);
+            return (frasi.length ? frasi : [b.testo]).map((t) => ({ testo: t, tipo, ruolo: b.ruolo, pagina: b.pagina }));
+          });
+          caricamento = false;
+          return;
         }
-        const out = [];
-        pagine.forEach((testoPagina, p) => {
-          for (const frase of inFrasi(testoPagina)) out.push({ testo: frase, tipo: "testo", pagina: p });
-          for (const alt of altPerPagina[p] || []) out.push({ testo: alt, tipo: "immagine", pagina: p });
+        // Fallback: ordine di pagina.
+        ordineLogico = false;
+        return Promise.all([testoDocumento(id), alberoTag(id).catch(() => null)]).then(([pagine, info]) => {
+          if (annullato) return;
+          const altPerPagina = {};
+          if (info) {
+            const cammina = (nodi) => {
+              for (const n of nodi) {
+                if (n.ruolo === "Figure" && n.alt && n.pagina != null) (altPerPagina[n.pagina] ||= []).push(n.alt);
+                cammina(n.figli);
+              }
+            };
+            cammina(info.radice);
+          }
+          const out = [];
+          pagine.forEach((testoPagina, p) => {
+            for (const frase of inFrasi(testoPagina)) out.push({ testo: frase, tipo: "testo", pagina: p });
+            for (const alt of altPerPagina[p] || []) out.push({ testo: alt, tipo: "immagine", pagina: p });
+          });
+          blocchi = out;
+          caricamento = false;
         });
-        blocchi = out;
       })
-      .catch((e) => !annullato && (errore = String(e)))
-      .finally(() => !annullato && (caricamento = false));
+      .catch((e) => {
+        if (!annullato) {
+          errore = String(e);
+          caricamento = false;
+        }
+      });
 
     return () => {
       annullato = true;
@@ -195,6 +216,9 @@
         Fai seguire il visore
       </label>
     </div>
+    {#if blocchi.length}
+      <div class="modo">Ordine: <b>{ordineLogico ? "logico (tag)" : "pagina"}</b></div>
+    {/if}
   </header>
 
   {#if !sintesi}
@@ -219,7 +243,8 @@
             class:immagine={b.tipo === "immagine"}
             onclick={() => vaiA(i)}
           >
-            {#if b.tipo === "immagine"}<span class="tag-img">IMG</span>{/if}
+            {#if b.tipo === "immagine"}<span class="tag-img">IMG</span>
+            {:else if ordineLogico && b.ruolo && b.ruolo !== "P"}<span class="tag-ruolo">{b.ruolo}</span>{/if}
             {#if i === indice && pezzi(b.testo, parolaIndice)}
               {@const p = pezzi(b.testo, parolaIndice)}
               {p[0]}<mark>{p[1]}</mark>{p[2]}
@@ -319,7 +344,8 @@
     color: #7ab0ff;
     font-style: italic;
   }
-  .tag-img {
+  .tag-img,
+  .tag-ruolo {
     font-size: 10px;
     font-style: normal;
     background: #294a73;
@@ -327,6 +353,15 @@
     padding: 0 5px;
     border-radius: 8px;
     margin-right: 6px;
+  }
+  .tag-ruolo {
+    background: #3a3320;
+    color: #e7c98a;
+  }
+  .modo {
+    font-size: 11px;
+    color: var(--testo-soft);
+    margin-top: 6px;
   }
   mark {
     background: #fff3c4;
