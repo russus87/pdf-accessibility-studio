@@ -61,10 +61,17 @@ pub fn render_pagina(
     Ok(STANDARD.encode(png))
 }
 
-/// Chiude una scheda: dimentica il documento associato all'id.
+/// Chiude una scheda: dimentica il documento e, se nessun'altra scheda usa lo
+/// stesso file, lo rimuove dalla cache di rendering.
 #[tauri::command]
 pub fn chiudi_documento(id: String, stato: State<StatoApp>) {
-    stato.documenti.lock().unwrap().remove(&id);
+    let mut docs = stato.documenti.lock().unwrap();
+    if let Some(path) = docs.remove(&id) {
+        let ancora_usato = docs.values().any(|p| p == &path);
+        if !ancora_usato {
+            pdfa_core::rimuovi_dalla_cache(&path);
+        }
+    }
 }
 
 /// Ritorna il percorso del file associato a un id di scheda.
@@ -204,4 +211,27 @@ pub fn salva_tag(
 /// Nome file leggibile da un percorso.
 fn nome(p: &std::path::Path) -> String {
     p.file_name().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default()
+}
+
+// --- Correzione assistita -----------------------------------------------------
+
+/// Applica le correzioni di accessibilita' (lingua/titolo/DisplayDocTitle) e
+/// salva una copia corretta nel percorso indicato. Non tocca l'originale.
+#[tauri::command]
+pub fn correggi(
+    id: String,
+    lang: Option<String>,
+    titolo: Option<String>,
+    display_doc_title: bool,
+    destinazione: String,
+    stato: State<StatoApp>,
+) -> Result<(), String> {
+    let path = percorso(&stato, &id)?;
+    let correzioni = pdfa_core::correzione::Correzioni {
+        lang: lang.filter(|s| !s.trim().is_empty()),
+        titolo: titolo.filter(|s| !s.trim().is_empty()),
+        display_doc_title,
+    };
+    pdfa_core::correzione::applica(&path, std::path::Path::new(&destinazione), &correzioni)
+        .map_err(|e| e.to_string())
 }

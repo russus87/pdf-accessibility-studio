@@ -26,7 +26,7 @@
   // Appiattisce l'albero in righe indentate per la visualizzazione.
   function righe(nodi, prof = 0, acc = []) {
     for (const n of nodi) {
-      acc.push({ prof, ruolo: n.ruolo, alt: n.alt, lang: n.lang });
+      acc.push({ prof, ruolo: n.ruolo, alt: n.alt, lang: n.lang, pagina: n.pagina });
       righe(n.figli, prof + 1, acc);
     }
     return acc;
@@ -64,12 +64,21 @@
     {#if !info.ha_struct_tree}
       <p class="info">Questo PDF non ha un albero dei tag (non è taggato).</p>
     {:else}
+      <p class="suggerimento">Clicca un elemento per saltare alla sua pagina.</p>
       <ul>
         {#each righe(info.radice) as r}
-          <li style={`padding-left:${8 + r.prof * 16}px`}>
-            <span class="ruolo">{r.ruolo}</span>
-            {#if r.alt}<span class="alt">alt: {r.alt}</span>{/if}
-            {#if r.lang}<span class="lang">{r.lang}</span>{/if}
+          <li>
+            <button
+              class="riga"
+              style={`padding-left:${8 + r.prof * 16}px`}
+              disabled={r.pagina == null}
+              onclick={() => schede.vaiAPagina(r.pagina)}
+            >
+              <span class="ruolo">{r.ruolo}</span>
+              {#if r.alt}<span class="alt">alt: {r.alt}</span>{/if}
+              {#if r.lang}<span class="lang">{r.lang}</span>{/if}
+              {#if r.pagina != null}<span class="pag">p.{r.pagina + 1}</span>{/if}
+            </button>
           </li>
         {/each}
       </ul>
@@ -108,6 +117,13 @@
   .azioni button:hover {
     border-color: var(--accento);
   }
+  .suggerimento {
+    margin: 0;
+    padding: 8px 14px 0;
+    font-size: 12px;
+    color: var(--testo-soft);
+    font-style: italic;
+  }
   ul {
     list-style: none;
     margin: 0;
@@ -116,10 +132,32 @@
     font-size: 13px;
   }
   li {
-    padding: 2px 8px;
+    margin: 0;
+  }
+  button.riga {
     display: flex;
+    width: 100%;
     gap: 8px;
     align-items: baseline;
+    background: transparent;
+    border: none;
+    color: var(--testo);
+    font: inherit;
+    text-align: left;
+    padding: 3px 8px;
+    cursor: pointer;
+    border-radius: 4px;
+  }
+  button.riga:hover:not(:disabled) {
+    background: var(--scheda);
+  }
+  button.riga:disabled {
+    cursor: default;
+  }
+  .pag {
+    margin-left: auto;
+    color: var(--testo-soft);
+    font-size: 11px;
   }
   .ruolo {
     color: var(--accento);

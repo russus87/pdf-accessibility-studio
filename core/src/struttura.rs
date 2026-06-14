@@ -24,6 +24,8 @@ pub struct NodoTag {
     pub actual_text: Option<String>,
     /// Lingua specifica dell'elemento, se presente.
     pub lang: Option<String>,
+    /// Indice di pagina (0-based) a cui l'elemento si riferisce, se ricavabile.
+    pub pagina: Option<i32>,
     /// Figli nell'albero.
     pub figli: Vec<NodoTag>,
 }
@@ -79,12 +81,18 @@ pub fn analizza(percorso: &std::path::Path) -> Risultato<InfoStruttura> {
         .and_then(|o| o.as_dict().ok());
     let ha_struct_tree = str_root.is_some();
 
+    // Mappa ObjectId della pagina -> indice 0-based, per risolvere /Pg.
+    let mut pagine_idx = HashMap::new();
+    for (num, id) in doc.get_pages() {
+        pagine_idx.insert(id, num as i32 - 1);
+    }
+
     let mut radice = Vec::new();
     if let Some(root) = str_root {
         let rolemap = rolemap(&doc, root);
         let mut visti = HashSet::new();
         if let Ok(k) = root.get(b"K") {
-            raccogli(&doc, k, None, &rolemap, &mut radice, &mut visti, 0);
+            raccogli(&doc, k, None, &rolemap, &pagine_idx, None, &mut radice, &mut visti, 0);
         }
     }
 
@@ -137,11 +145,14 @@ fn rolemap(doc: &Document, str_root: &Dictionary) -> HashMap<String, String> {
 }
 
 /// Raccoglie i nodi a partire da un oggetto K (puo' essere array, dict o ref).
+#[allow(clippy::too_many_arguments)]
 fn raccogli(
     doc: &Document,
     obj: &Object,
     id_riferito: Option<ObjectId>,
     rolemap: &HashMap<String, String>,
+    pagine_idx: &HashMap<ObjectId, i32>,
+    pagina_ereditata: Option<i32>,
     out: &mut Vec<NodoTag>,
     visti: &mut HashSet<ObjectId>,
     profondita: usize,
@@ -164,7 +175,7 @@ fn raccogli(
     match risolto {
         Object::Array(arr) => {
             for o in arr {
-                raccogli(doc, o, None, rolemap, out, visti, profondita + 1);
+                raccogli(doc, o, None, rolemap, pagine_idx, pagina_ereditata, out, visti, profondita + 1);
             }
         }
         Object::Dictionary(d) => {
@@ -172,21 +183,29 @@ fn raccogli(
             if let Ok(s) = d.get(b"S").and_then(|o| o.as_name()) {
                 let originale = String::from_utf8_lossy(s).into_owned();
                 let standard = rolemap.get(&originale).cloned().unwrap_or_else(|| originale.clone());
+                // Pagina dell'elemento: da /Pg, altrimenti ereditata dal genitore.
+                let pagina = d
+                    .get(b"Pg")
+                    .ok()
+                    .and_then(|o| o.as_reference().ok())
+                    .and_then(|id| pagine_idx.get(&id).copied())
+                    .or(pagina_ereditata);
                 let mut nodo = NodoTag {
                     ruolo: standard.clone(),
                     ruolo_originale: (standard != originale).then_some(originale),
                     alt: stringa(doc, d, b"Alt"),
                     actual_text: stringa(doc, d, b"ActualText"),
                     lang: stringa(doc, d, b"Lang"),
+                    pagina,
                     figli: Vec::new(),
                 };
                 if let Ok(k) = d.get(b"K") {
-                    raccogli(doc, k, None, rolemap, &mut nodo.figli, visti, profondita + 1);
+                    raccogli(doc, k, None, rolemap, pagine_idx, pagina, &mut nodo.figli, visti, profondita + 1);
                 }
                 out.push(nodo);
             } else if let Ok(k) = d.get(b"K") {
                 // Contenitore senza ruolo proprio: scendi comunque.
-                raccogli(doc, k, None, rolemap, out, visti, profondita + 1);
+                raccogli(doc, k, None, rolemap, pagine_idx, pagina_ereditata, out, visti, profondita + 1);
             }
         }
         // Interi (MCID) e altro: contenuto, non struttura.

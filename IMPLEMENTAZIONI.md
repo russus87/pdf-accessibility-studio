@@ -50,8 +50,19 @@ Legenda: ✅ fatto · 🚧 in corso · ⏳ pianificato · ❌ fuori scope
 - ✅ Export dell'albero dei tag in **JSON** e **XML** — `core/export.rs`
 - ✅ Pannello struttura + pulsanti export — `components/PannelloTag.svelte` + comandi `esporta_tag_stringa` / `salva_tag`
 
+## Fase 6 — Versione semi-completa ✅
+
+- ✅ **Cache documenti**: i PDF aperti restano in memoria (`PdfDocument` Send+Sync),
+  niente riapertura ad ogni render — `core/documento.rs`; eviction alla chiusura scheda
+- ✅ **Anteprime pagine** (thumbnail navigabili) — `components/Anteprime.svelte`
+- ✅ **Pannello struttura cliccabile**: ogni tag conosce la sua pagina (`/Pg`) e
+  cliccandolo il visore ci salta — `core/struttura.rs` + `components/PannelloTag.svelte`
+- ✅ **Correzione assistita**: imposta lingua, titolo e DisplayDocTitle e salva una
+  copia corretta (l'originale resta intatto) — `core/correzione.rs` (`lopdf`) +
+  `components/PannelloCorrezione.svelte`. Verificato: validazione da 2 errori → 1.
+
 ## Idee future ⏳
 
-- ⏳ Anteprime pagine (thumbnail), segnalibri, pannello struttura navigabile cliccabile
-- ⏳ Cache dei documenti aperti (oggi si riapre il file ad ogni render)
-- ⏳ Correzione assistita dei problemi di accessibilità (aggiunta Alt, lingua, titolo)
+- ⏳ Aggiunta di Alt alle singole figure (editor mirato sull'elemento)
+- ⏳ Segnalibri / outline navigabile, ordine di lettura editabile
+- ⏳ Lettura vocale nell'esatto ordine dei tag (oggi: ordine di pagina) + highlight per parola

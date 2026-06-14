@@ -9,6 +9,7 @@
 //! vocale (ordine logico dei tag), confronto (testo/pixel/tag), export tag.
 
 pub mod confronto;
+pub mod correzione;
 pub mod documento;
 pub mod errore;
 pub mod export;
@@ -16,7 +17,7 @@ pub mod pdfium;
 pub mod struttura;
 pub mod validazione;
 
-pub use documento::{apri, render_pagina, testo_pagine, InfoDocumento};
+pub use documento::{apri, render_pagina, rimuovi_dalla_cache, testo_pagine, InfoDocumento};
 pub use errore::{Errore, Risultato};
 pub use struttura::{analizza, InfoStruttura};
 pub use validazione::{valida, Report};

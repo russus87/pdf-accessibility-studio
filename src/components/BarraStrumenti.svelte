@@ -34,12 +34,16 @@
 
   <span class="spazio"></span>
 
+  <button class="strumento" class:on={schede.anteprime} disabled={!s}
+    onclick={() => (schede.anteprime = !schede.anteprime)}>Anteprime</button>
   <button class="strumento" class:on={schede.pannello === "valida"} disabled={!s}
     onclick={() => schede.mostraPannello("valida")}>Valida</button>
   <button class="strumento" class:on={schede.pannello === "tag"} disabled={!s}
     onclick={() => schede.mostraPannello("tag")}>Tag</button>
   <button class="strumento" class:on={schede.pannello === "leggi"} disabled={!s}
     onclick={() => schede.mostraPannello("leggi")}>Leggi</button>
+  <button class="strumento" class:on={schede.pannello === "correggi"} disabled={!s}
+    onclick={() => schede.mostraPannello("correggi")}>Correggi</button>
   <button class="strumento" class:on={schede.pannello === "confronta"} disabled={schede.schede.length < 2}
     onclick={() => schede.mostraPannello("confronta")}>Confronta</button>
 </div>

@@ -28,6 +28,17 @@ fn main() {
     let json = pdfa_core::export::esporta_json(pa).expect("json");
     println!("[export json] {} caratteri", json.len());
 
+    // Correzione assistita: applica lingua + titolo + DisplayDocTitle e rivalida.
+    let fix = std::env::temp_dir().join("smoke_corretto.pdf");
+    let correzioni = pdfa_core::correzione::Correzioni {
+        lang: Some("it-IT".into()),
+        titolo: Some("Documento Corretto àèì".into()),
+        display_doc_title: true,
+    };
+    pdfa_core::correzione::applica(pa, &fix, &correzioni).expect("correzione");
+    let dopo = pdfa_core::valida(&fix).expect("valida dopo");
+    println!("[correzione] salvato {:?}; ora {} errori, {} avvisi", fix, dopo.errori, dopo.avvisi);
+
     if let Some(b) = b {
         let pb = Path::new(&b);
         let dt = pdfa_core::confronto::confronta_testo(pa, pb).expect("confronto testo");

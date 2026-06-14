@@ -14,12 +14,20 @@ class GestoreSchede {
   attiva = $state(null);
   /** messaggio di errore eventuale */
   errore = $state(null);
-  /** pannello laterale attivo: "valida" | "tag" | "leggi" | "confronta" | null */
+  /** pannello attivo: "valida" | "tag" | "leggi" | "confronta" | "correggi" | null */
   pannello = $state(null);
+  /** mostra la striscia delle anteprime pagine a sinistra del visore */
+  anteprime = $state(false);
 
   /** Apre/chiude un pannello laterale (toggle). */
   mostraPannello(nome) {
     this.pannello = this.pannello === nome ? null : nome;
+  }
+
+  /** Imposta la pagina corrente della scheda attiva (usato da anteprime e tag). */
+  vaiAPagina(indice) {
+    const s = this.schedaAttiva;
+    if (s && indice != null && indice >= 0 && indice < s.pagine) s.pagina = indice;
   }
 
   /** Apre uno o piu' PDF scelti dall'utente. */

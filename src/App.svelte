@@ -5,13 +5,15 @@
   import BarraSchede from "./components/BarraSchede.svelte";
   import BarraStrumenti from "./components/BarraStrumenti.svelte";
   import Visore from "./components/Visore.svelte";
+  import Anteprime from "./components/Anteprime.svelte";
   import PannelloValidazione from "./components/PannelloValidazione.svelte";
   import PannelloTag from "./components/PannelloTag.svelte";
   import LettoreVocale from "./components/LettoreVocale.svelte";
+  import PannelloCorrezione from "./components/PannelloCorrezione.svelte";
   import Confronto from "./components/Confronto.svelte";
 
   const lateralePannello = $derived(
-    ["valida", "tag", "leggi"].includes(schede.pannello) ? schede.pannello : null,
+    ["valida", "tag", "leggi", "correggi"].includes(schede.pannello) ? schede.pannello : null,
   );
 </script>
 
@@ -30,12 +32,16 @@
     <Confronto />
   {:else}
     <div class="area">
+      {#if schede.anteprime && schede.schedaAttiva}
+        <Anteprime />
+      {/if}
       <Visore />
       {#if lateralePannello}
         <aside class="laterale">
           {#if lateralePannello === "valida"}<PannelloValidazione />
           {:else if lateralePannello === "tag"}<PannelloTag />
-          {:else if lateralePannello === "leggi"}<LettoreVocale />{/if}
+          {:else if lateralePannello === "leggi"}<LettoreVocale />
+          {:else if lateralePannello === "correggi"}<PannelloCorrezione />{/if}
         </aside>
       {/if}
     </div>

@@ -76,3 +76,22 @@ export async function salvaTag(id, formato) {
   await invoke("salva_tag", { id, formato, destinazione });
   return true;
 }
+
+// --- Correzione assistita ---
+/** Chiede dove salvare la copia corretta e applica le correzioni.
+ *  Ritorna il percorso salvato, oppure null se annullato. */
+export async function correggi(id, { lang, titolo, displayDocTitle }) {
+  const destinazione = await save({
+    defaultPath: "corretto.pdf",
+    filters: [{ name: "PDF", extensions: ["pdf"] }],
+  });
+  if (!destinazione) return null;
+  await invoke("correggi", {
+    id,
+    lang: lang || null,
+    titolo: titolo || null,
+    displayDocTitle: !!displayDocTitle,
+    destinazione,
+  });
+  return destinazione;
+}

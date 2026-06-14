@@ -63,6 +63,7 @@ pub fn run() {
             comandi::salva_report,
             comandi::esporta_tag_stringa,
             comandi::salva_tag,
+            comandi::correggi,
         ])
         .run(tauri::generate_context!())
         .expect("errore nell'avvio di PDF Accessibility Studio");
