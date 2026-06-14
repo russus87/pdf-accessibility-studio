@@ -1,7 +1,24 @@
 <script>
   // Shell dell'applicazione: barra schede, toolbar, visore, pannelli laterali
   // (validazione / tag / lettura) e vista di confronto.
+  import { getCurrentWebview } from "@tauri-apps/api/webview";
   import { schede } from "./lib/schede.svelte.js";
+
+  // Apertura via trascinamento di file PDF nella finestra.
+  $effect(() => {
+    let stop;
+    getCurrentWebview()
+      .onDragDropEvent((e) => {
+        if (e.payload.type === "drop") {
+          for (const p of e.payload.paths) {
+            if (p.toLowerCase().endsWith(".pdf")) schede.apri(p);
+          }
+        }
+      })
+      .then((u) => (stop = u))
+      .catch(() => {});
+    return () => stop && stop();
+  });
   import BarraSchede from "./components/BarraSchede.svelte";
   import BarraStrumenti from "./components/BarraStrumenti.svelte";
   import Visore from "./components/Visore.svelte";

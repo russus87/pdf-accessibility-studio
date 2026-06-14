@@ -131,6 +131,10 @@ Alt, cambio ruolo e riordino su un PDF taggato costruito al volo.
   Test: nero su bianco = 21:1, colori uguali = 1:1.
 - ✅ Pannello Validazione: "Analizza" contrasto della pagina con campioni colore ed esiti.
 
+## Fase 14 — Rifiniture ✅
+
+- ✅ Apertura PDF via **drag & drop** nella finestra (`App.svelte`, evento Tauri).
+
 ## Idee future ⏳
 
 - ⏳ Utility PDF generali (ruota/riordina/elimina/unisci pagine, ricerca, stampa)

@@ -45,7 +45,7 @@
   {#if !s}
     <div class="vuoto">
       <h2>PDF Accessibility Studio</h2>
-      <p>Apri un PDF per iniziare.</p>
+      <p>Apri un PDF per iniziare, o trascinalo nella finestra.</p>
       <button onclick={() => schede.apriDaDialogo()}>Apri PDF</button>
     </div>
   {:else if erroreRender}
