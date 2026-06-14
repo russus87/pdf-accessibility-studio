@@ -297,6 +297,36 @@ pub async fn suggerisci_alt(
     crate::ia::alt_da_immagine(&i.modello, &chiave, png).await
 }
 
+// --- OCR (PDF scansionati) ---------------------------------------------------
+
+#[derive(Serialize)]
+pub struct InfoOcr {
+    pub disponibile: bool,
+    pub lingue: Vec<String>,
+}
+
+/// Indica se tesseract è installato e quali lingue offre.
+#[tauri::command]
+pub fn ocr_info() -> InfoOcr {
+    InfoOcr {
+        disponibile: pdfa_core::ocr::disponibile(),
+        lingue: pdfa_core::ocr::lingue(),
+    }
+}
+
+/// Esegue l'OCR del PDF e salva una copia ricercabile in `destinazione`.
+#[tauri::command]
+pub fn esegui_ocr(
+    id: String,
+    lingua: String,
+    destinazione: String,
+    stato: State<StatoApp>,
+) -> Result<(), String> {
+    let path = percorso(&stato, &id)?;
+    pdfa_core::ocr::ocr_a_pdf(&path, std::path::Path::new(&destinazione), &lingua)
+        .map_err(|e| e.to_string())
+}
+
 /// Nome file leggibile da un percorso.
 fn nome(p: &std::path::Path) -> String {
     p.file_name().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default()

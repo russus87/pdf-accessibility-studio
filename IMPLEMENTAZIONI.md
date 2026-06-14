@@ -116,8 +116,16 @@ Alt, cambio ruolo e riordino su un PDF taggato costruito al volo.
   compila l'Alt suggerito. Comandi `stato_ai` / `imposta_ai` / `suggerisci_alt`.
 - ✅ CI: `libssl-dev` (Linux) e `openssl` (Arch) per reqwest native-tls.
 
+## Fase 12 — OCR PDF scansionati ✅
+
+- ✅ `core/ocr.rs`: render delle pagine + `tesseract` esterno → PDF con livello testo
+  ricercabile. Rilevamento disponibilità e lingue installate. Verificato: PDF immagine
+  (0 testo) → testo estraibile dopo OCR.
+- ✅ Pannello Validazione: selezione lingua + "Crea PDF ricercabile". Comandi
+  `ocr_info` / `esegui_ocr`.
+
 ## Idee future ⏳
 
-- ⏳ OCR (tesseract) per i PDF scansionati, contrasto colori WCAG
+- ⏳ Contrasto colori WCAG (calcolo rapporto + stima per pagina)
 - ⏳ Utility PDF generali (ruota/riordina/elimina/unisci pagine, ricerca, stampa)
 - ⏳ Qualità app (drag&drop, file recenti, scorciatoie, tema chiaro)

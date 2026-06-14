@@ -14,6 +14,7 @@ pub mod documento;
 pub mod errore;
 pub mod export;
 pub mod lettura;
+pub mod ocr;
 pub mod pdfium;
 pub mod segnalibri;
 pub mod struttura;

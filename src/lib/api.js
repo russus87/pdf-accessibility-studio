@@ -32,6 +32,21 @@ export function chiudiDocumento(id) {
 export function valida(id) {
   return invoke("valida", { id });
 }
+// --- OCR ---
+export function ocrInfo() {
+  return invoke("ocr_info");
+}
+/** Esegue l'OCR e salva un PDF ricercabile; ritorna il percorso o null. */
+export async function eseguiOcr(id, lingua) {
+  const destinazione = await save({
+    defaultPath: "ricercabile.pdf",
+    filters: [{ name: "PDF", extensions: ["pdf"] }],
+  });
+  if (!destinazione) return null;
+  await invoke("esegui_ocr", { id, lingua, destinazione });
+  return destinazione;
+}
+
 /** Chiede dove salvare ed esporta il report di validazione (html|pdf). */
 export async function salvaReportValidazione(id, formato) {
   const destinazione = await save({

@@ -1,13 +1,37 @@
 <script>
   // Pannello validazione accessibilita': mostra gli esiti delle regole.
   import { schede } from "../lib/schede.svelte.js";
-  import { valida, salvaReportValidazione } from "../lib/api.js";
+  import { valida, salvaReportValidazione, ocrInfo, eseguiOcr } from "../lib/api.js";
 
   const s = $derived(schede.schedaAttiva);
   let report = $state(null);
   let caricamento = $state(false);
   let errore = $state(null);
   let esito = $state(null);
+
+  // OCR
+  let ocr = $state({ disponibile: false, lingue: [] });
+  let linguaOcr = $state("eng");
+  let ocrInCorso = $state(false);
+  $effect(() => {
+    ocrInfo().then((r) => {
+      ocr = r;
+      if (r.lingue.length) linguaOcr = r.lingue.find((l) => l === "ita") || r.lingue[0];
+    }).catch(() => {});
+  });
+
+  async function ocrEsegui() {
+    esito = null;
+    ocrInCorso = true;
+    try {
+      const dest = await eseguiOcr(s.id, linguaOcr);
+      if (dest) esito = "PDF ricercabile creato.";
+    } catch (e) {
+      esito = `OCR: ${e}`;
+    } finally {
+      ocrInCorso = false;
+    }
+  }
 
   async function esporta(formato) {
     esito = null;
@@ -49,6 +73,20 @@
   </header>
 
   {#if esito}<p class="esito">{esito}</p>{/if}
+
+  {#if s}
+    <div class="ocr">
+      {#if ocr.disponibile}
+        <span class="ocr-tit">OCR (PDF scansionati):</span>
+        <select bind:value={linguaOcr}>
+          {#each ocr.lingue as l}<option value={l}>{l}</option>{/each}
+        </select>
+        <button onclick={ocrEsegui} disabled={ocrInCorso}>{ocrInCorso ? "OCR in corso…" : "Crea PDF ricercabile"}</button>
+      {:else}
+        <span class="ocr-tit">OCR non disponibile: installa <code>tesseract</code> (+ dati lingua).</span>
+      {/if}
+    </div>
+  {/if}
 
   {#if caricamento}
     <p class="info">Analisi in corso…</p>
@@ -109,6 +147,38 @@
     padding: 10px 14px;
     color: #7ad08f;
     font-size: 13px;
+  }
+  .ocr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--bordo);
+    font-size: 12px;
+    color: var(--testo-soft);
+  }
+  .ocr select {
+    background: var(--scheda);
+    color: var(--testo);
+    border: 1px solid var(--bordo);
+    border-radius: 6px;
+    padding: 4px 8px;
+  }
+  .ocr button {
+    background: var(--accento);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 5px 10px;
+    cursor: pointer;
+  }
+  .ocr button:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+  .ocr code {
+    color: var(--accento);
   }
   .riepilogo {
     display: flex;

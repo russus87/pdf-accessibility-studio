@@ -73,6 +73,8 @@ pub fn run() {
             comandi::stato_ai,
             comandi::imposta_ai,
             comandi::suggerisci_alt,
+            comandi::ocr_info,
+            comandi::esegui_ocr,
         ])
         .run(tauri::generate_context!())
         .expect("errore nell'avvio di PDF Accessibility Studio");

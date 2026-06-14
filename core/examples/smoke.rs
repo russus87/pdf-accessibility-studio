@@ -26,6 +26,19 @@ fn main() {
     let segn = pdfa_core::segnalibri::segnalibri(pa).expect("segnalibri");
     println!("[segnalibri] {} voci", segn.len());
 
+    if pdfa_core::ocr::disponibile() {
+        let out = std::env::temp_dir().join("smoke_ocr.pdf");
+        match pdfa_core::ocr::ocr_a_pdf(pa, &out, "eng") {
+            Ok(()) => {
+                let testo_ocr = pdfa_core::testo_pagine(&out).unwrap_or_default().join(" ");
+                println!("[ocr] PDF ricercabile creato; testo estratto: {:?}", testo_ocr.trim());
+            }
+            Err(e) => println!("[ocr] errore: {e}"),
+        }
+    } else {
+        println!("[ocr] tesseract non disponibile");
+    }
+
     let xml = pdfa_core::export::esporta_xml(pa).expect("xml");
     println!("[export xml] {} caratteri", xml.len());
     let json = pdfa_core::export::esporta_json(pa).expect("json");
