@@ -1,12 +1,23 @@
 <script>
   // Indice / outline navigabile: cliccando una voce il visore salta alla pagina.
   import { schede } from "../lib/schede.svelte.js";
-  import { segnalibri } from "../lib/api.js";
+  import { segnalibri, generaSegnalibri } from "../lib/api.js";
 
   const s = $derived(schede.schedaAttiva);
   let voci = $state(null);
   let caricamento = $state(false);
   let errore = $state(null);
+  let esito = $state(null);
+
+  async function genera() {
+    esito = null;
+    try {
+      const r = await generaSegnalibri(s.id);
+      if (r) esito = { ok: true, dest: r.dest, n: r.n };
+    } catch (e) {
+      esito = { ok: false, msg: String(e) };
+    }
+  }
 
   $effect(() => {
     if (!s) return;
@@ -24,7 +35,18 @@
 </script>
 
 <div class="pannello">
-  <header><h3>Indice / Segnalibri</h3></header>
+  <header>
+    <h3>Indice / Segnalibri</h3>
+    <button class="genera" onclick={genera} disabled={!s}>Genera dai titoli</button>
+  </header>
+
+  {#if esito?.ok}
+    <p class="esito">Creati {esito.n} segnalibri.
+      <button class="link" onclick={() => schede.apri(esito.dest)}>Apri la copia</button>
+    </p>
+  {:else if esito && !esito.ok}
+    <p class="err">{esito.msg}</p>
+  {/if}
 
   {#if caricamento}
     <p class="info">Lettura indice…</p>
@@ -63,8 +85,35 @@
     border-bottom: 1px solid var(--bordo);
   }
   h3 {
-    margin: 0;
+    margin: 0 0 8px;
     font-size: 15px;
+  }
+  .genera {
+    background: var(--scheda);
+    color: var(--testo);
+    border: 1px solid var(--bordo);
+    border-radius: 6px;
+    padding: 5px 10px;
+    cursor: pointer;
+    font-size: 12px;
+  }
+  .genera:hover {
+    border-color: var(--accento);
+  }
+  .esito {
+    padding: 10px 14px;
+    margin: 0;
+    color: #7ad08f;
+    font-size: 13px;
+  }
+  .link {
+    background: none;
+    border: none;
+    color: var(--accento);
+    cursor: pointer;
+    text-decoration: underline;
+    font-size: 13px;
+    padding: 0 0 0 6px;
   }
   ul {
     list-style: none;

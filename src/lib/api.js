@@ -97,7 +97,8 @@ export async function salvaTag(id, formato) {
 // --- Correzione assistita ---
 /** Chiede dove salvare la copia corretta e applica le correzioni.
  *  Ritorna il percorso salvato, oppure null se annullato. */
-export async function correggi(id, { lang, titolo, displayDocTitle, alt, ruoli }) {
+export async function correggi(id, opts) {
+  const { lang, titolo, displayDocTitle, autore, soggetto, paroleChiave, alt, ruoli } = opts;
   const destinazione = await save({
     defaultPath: "corretto.pdf",
     filters: [{ name: "PDF", extensions: ["pdf"] }],
@@ -108,11 +109,25 @@ export async function correggi(id, { lang, titolo, displayDocTitle, alt, ruoli }
     lang: lang || null,
     titolo: titolo || null,
     displayDocTitle: !!displayDocTitle,
+    autore: autore || null,
+    soggetto: soggetto || null,
+    paroleChiave: paroleChiave || null,
     alt: alt || [],
     ruoli: ruoli || [],
     destinazione,
   });
   return destinazione;
+}
+
+/** Genera i segnalibri dai titoli e salva una copia; ritorna {dest, n}. */
+export async function generaSegnalibri(id) {
+  const destinazione = await save({
+    defaultPath: "con-segnalibri.pdf",
+    filters: [{ name: "PDF", extensions: ["pdf"] }],
+  });
+  if (!destinazione) return null;
+  const n = await invoke("genera_segnalibri", { id, destinazione });
+  return { dest: destinazione, n };
 }
 
 /** Riordina gli elementi di primo livello (ordine di lettura) e salva una copia. */

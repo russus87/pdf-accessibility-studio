@@ -275,16 +275,23 @@ pub fn correggi(
     lang: Option<String>,
     titolo: Option<String>,
     display_doc_title: bool,
+    autore: Option<String>,
+    soggetto: Option<String>,
+    parole_chiave: Option<String>,
     alt: Option<Vec<AltInput>>,
     ruoli: Option<Vec<RuoloInput>>,
     destinazione: String,
     stato: State<StatoApp>,
 ) -> Result<(), String> {
     let path = percorso(&stato, &id)?;
+    let pulisci = |o: Option<String>| o.filter(|s| !s.trim().is_empty());
     let correzioni = pdfa_core::correzione::Correzioni {
-        lang: lang.filter(|s| !s.trim().is_empty()),
-        titolo: titolo.filter(|s| !s.trim().is_empty()),
+        lang: pulisci(lang),
+        titolo: pulisci(titolo),
         display_doc_title,
+        autore: pulisci(autore),
+        soggetto: pulisci(soggetto),
+        parole_chiave: pulisci(parole_chiave),
         alt: alt
             .unwrap_or_default()
             .into_iter()
@@ -297,6 +304,19 @@ pub fn correggi(
             .collect(),
     };
     pdfa_core::correzione::applica(&path, std::path::Path::new(&destinazione), &correzioni)
+        .map_err(|e| e.to_string())
+}
+
+/// Genera i segnalibri dai titoli (Hn) e salva una copia. Ritorna il numero
+/// di segnalibri creati.
+#[tauri::command]
+pub fn genera_segnalibri(
+    id: String,
+    destinazione: String,
+    stato: State<StatoApp>,
+) -> Result<usize, String> {
+    let path = percorso(&stato, &id)?;
+    pdfa_core::correzione::genera_segnalibri(&path, std::path::Path::new(&destinazione))
         .map_err(|e| e.to_string())
 }
 

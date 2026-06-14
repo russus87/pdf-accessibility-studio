@@ -129,6 +129,17 @@ fn struttura_lettura_validazione_correzione() {
     assert!(!report2.esiti.iter().any(|e| e.regola.contains("alternativo")
         && matches!(e.gravita, pdfa_core::validazione::Gravita::Errore)));
 
+    // 4b. Segnalibri generati dai titoli (il P diventato H1 -> 1 segnalibro).
+    let conseg = std::env::temp_dir().join("pdfa_test_segnalibri.pdf");
+    let n = pdfa_core::correzione::genera_segnalibri(&corretto, &conseg).expect("genera segnalibri");
+    assert_eq!(n, 1, "un segnalibro dal titolo H1");
+    let ricarica = lopdf::Document::load(&conseg).unwrap();
+    let root = ricarica.trailer.get(b"Root").unwrap().as_reference().unwrap();
+    assert!(
+        ricarica.get_object(root).unwrap().as_dict().unwrap().get(b"Outlines").is_ok(),
+        "il catalogo deve avere /Outlines"
+    );
+
     // 5. Riordino: Figure prima di P.
     let riord = std::env::temp_dir().join("pdfa_test_riord.pdf");
     pdfa_core::correzione::riordina(&path, &riord, &[rif_fig, rif_p]).expect("riordina");

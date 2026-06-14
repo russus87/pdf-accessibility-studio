@@ -9,6 +9,9 @@
   let lang = $state("it-IT");
   let titolo = $state("");
   let displayDocTitle = $state(true);
+  let autore = $state("");
+  let soggetto = $state("");
+  let paroleChiave = $state("");
   let esito = $state(null);
   let inCorso = $state(false);
 
@@ -68,7 +71,7 @@
       const alt = Object.entries(altValori)
         .filter(([, testo]) => testo && testo.trim())
         .map(([riferimento, testo]) => ({ riferimento, testo: testo.trim() }));
-      const dest = await correggi(s.id, { lang, titolo, displayDocTitle, alt });
+      const dest = await correggi(s.id, { lang, titolo, displayDocTitle, autore, soggetto, paroleChiave, alt });
       if (dest) {
         esito = { ok: true, dest };
       }
@@ -107,6 +110,19 @@
   <label class="check">
     <input type="checkbox" bind:checked={displayDocTitle} />
     Mostra il titolo nella barra (DisplayDocTitle)
+  </label>
+
+  <label>
+    Autore
+    <input type="text" bind:value={autore} placeholder="Autore (lascia vuoto per non toccarlo)" />
+  </label>
+  <label>
+    Soggetto
+    <input type="text" bind:value={soggetto} placeholder="Soggetto / descrizione" />
+  </label>
+  <label>
+    Parole chiave
+    <input type="text" bind:value={paroleChiave} placeholder="parole, chiave, separate, da, virgole" />
   </label>
 
   {#if figure.length}

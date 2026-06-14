@@ -99,9 +99,17 @@ Alt, cambio ruolo e riordino su un PDF taggato costruito al volo.
   + pannello Validazione (pulsanti Report HTML/PDF).
 - ✅ Test unit (`validazione.rs`): ordine titoli, liste, PDF scansionato.
 
+## Fase 10 — Metadati + segnalibri automatici ✅
+
+- ✅ **Editor metadati** (autore, soggetto, parole chiave) nel pannello Correzione,
+  scritti nel dizionario Info (UTF-16) — `core/correzione.rs`.
+- ✅ **Genera segnalibri dai titoli**: costruisce l'outline `/Outlines` annidato dai
+  tag Hn (testo+pagina dall'ordine MCID) — `core/correzione.rs::genera_segnalibri`
+  + pulsante nel pannello Segnalibri. Test verificato (crea /Outlines).
+
 ## Idee future ⏳
 
 - ⏳ Suggerimento Alt con AI (Claude vision), OCR (tesseract), contrasto colori WCAG
-- ⏳ Editor metadati/tabelle/liste, "marca come Artifact", titoli→segnalibri, "correggi tutto"
+- ⏳ Editor tabelle/liste avanzato, "correggi tutto" in un click
 - ⏳ Utility PDF generali (ruota/riordina/elimina/unisci pagine, ricerca, stampa)
 - ⏳ Qualità app (drag&drop, file recenti, scorciatoie, tema chiaro)

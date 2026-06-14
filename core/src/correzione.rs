@@ -5,9 +5,10 @@
 //! risolvono diversi esiti della validazione. L'aggiunta di Alt alle singole
 //! figure richiede un'interfaccia dedicata e arrivera' in seguito.
 
+use std::collections::HashMap;
 use std::path::Path;
 
-use lopdf::{Dictionary, Document, Object, StringFormat};
+use lopdf::{Dictionary, Document, Object, ObjectId, StringFormat};
 
 use crate::errore::{Errore, Risultato};
 
@@ -17,6 +18,10 @@ pub struct Correzioni {
     pub lang: Option<String>,
     pub titolo: Option<String>,
     pub display_doc_title: bool,
+    /// Metadati documento (Info): autore, soggetto, parole chiave.
+    pub autore: Option<String>,
+    pub soggetto: Option<String>,
+    pub parole_chiave: Option<String>,
     /// Testo alternativo da impostare su singoli elementi: (riferimento
     /// "numero_generazione", testo Alt).
     pub alt: Vec<(String, String)>,
@@ -53,8 +58,8 @@ pub fn applica(origine: &Path, destinazione: &Path, c: &Correzioni) -> Risultato
         }
     }
 
-    // --- Info/Title ---
-    if let Some(t) = &c.titolo {
+    // --- Info: titolo, autore, soggetto, parole chiave ---
+    if c.titolo.is_some() || c.autore.is_some() || c.soggetto.is_some() || c.parole_chiave.is_some() {
         let info_id = match doc.trailer.get(b"Info").and_then(|o| o.as_reference()) {
             Ok(id) => id,
             Err(_) => {
@@ -67,7 +72,18 @@ pub fn applica(origine: &Path, destinazione: &Path, c: &Correzioni) -> Risultato
             .get_object_mut(info_id)
             .and_then(|o| o.as_dict_mut())
             .map_err(|e| Errore::Pdfium(format!("Info: {e}")))?;
-        info.set("Title", stringa_utf16(t));
+        if let Some(t) = &c.titolo {
+            info.set("Title", stringa_utf16(t));
+        }
+        if let Some(a) = &c.autore {
+            info.set("Author", stringa_utf16(a));
+        }
+        if let Some(s) = &c.soggetto {
+            info.set("Subject", stringa_utf16(s));
+        }
+        if let Some(k) = &c.parole_chiave {
+            info.set("Keywords", stringa_utf16(k));
+        }
     }
 
     // --- Alt su singoli elementi (figure) ---
@@ -144,6 +160,114 @@ pub fn riordina(origine: &Path, destinazione: &Path, ordine: &[String]) -> Risul
 
     doc.save(destinazione).map_err(|e| Errore::Io(format!("salvataggio: {e}")))?;
     Ok(())
+}
+
+/// Genera l'outline (segnalibri) dai titoli Hn del documento e salva una copia.
+/// Ritorna il numero di segnalibri creati.
+pub fn genera_segnalibri(origine: &Path, destinazione: &Path) -> Risultato<usize> {
+    // I titoli (con testo e pagina) vengono dall'ordine logico dei tag.
+    let blocchi = crate::lettura::blocchi(origine)?;
+    let titoli: Vec<(u8, String, Option<i32>)> = blocchi
+        .iter()
+        .filter_map(|b| livello_heading(&b.ruolo).map(|l| (l, b.testo.clone(), b.pagina)))
+        .collect();
+    if titoli.is_empty() {
+        return Err(Errore::Pdfium("nessun titolo (H1..H6) trovato nei tag".into()));
+    }
+
+    let mut doc = Document::load(origine).map_err(|e| Errore::Pdfium(format!("lopdf: {e}")))?;
+
+    // Indice pagina -> ObjectId.
+    let mut page_ids: HashMap<i32, ObjectId> = HashMap::new();
+    for (num, id) in doc.get_pages() {
+        page_ids.insert(num as i32 - 1, id);
+    }
+
+    // Riserva gli id: radice outline + un item per titolo.
+    let outlines_id = doc.new_object_id();
+    let item_ids: Vec<ObjectId> = (0..titoli.len()).map(|_| doc.new_object_id()).collect();
+
+    // Annidamento per livello: per ogni titolo, il genitore e' l'ultimo titolo
+    // con livello inferiore ancora aperto.
+    let mut parent_of: Vec<Option<usize>> = vec![None; titoli.len()];
+    let mut stack: Vec<usize> = Vec::new();
+    for i in 0..titoli.len() {
+        let lvl = titoli[i].0;
+        while let Some(&top) = stack.last() {
+            if titoli[top].0 >= lvl {
+                stack.pop();
+            } else {
+                break;
+            }
+        }
+        parent_of[i] = stack.last().copied();
+        stack.push(i);
+    }
+
+    // Liste dei figli per ogni genitore (None = radice).
+    let mut figli: HashMap<Option<usize>, Vec<usize>> = HashMap::new();
+    for i in 0..titoli.len() {
+        figli.entry(parent_of[i]).or_default().push(i);
+    }
+
+    // Crea gli oggetti item con i collegamenti dell'outline.
+    for i in 0..titoli.len() {
+        let (_, titolo, pagina) = &titoli[i];
+        let mut d = Dictionary::new();
+        d.set("Title", stringa_utf16(titolo));
+        d.set(
+            "Parent",
+            match parent_of[i] {
+                Some(p) => Object::Reference(item_ids[p]),
+                None => Object::Reference(outlines_id),
+            },
+        );
+        let fratelli = &figli[&parent_of[i]];
+        let pos = fratelli.iter().position(|&x| x == i).unwrap();
+        if pos > 0 {
+            d.set("Prev", Object::Reference(item_ids[fratelli[pos - 1]]));
+        }
+        if pos + 1 < fratelli.len() {
+            d.set("Next", Object::Reference(item_ids[fratelli[pos + 1]]));
+        }
+        if let Some(ch) = figli.get(&Some(i)) {
+            d.set("First", Object::Reference(item_ids[ch[0]]));
+            d.set("Last", Object::Reference(item_ids[*ch.last().unwrap()]));
+            d.set("Count", ch.len() as i64);
+        }
+        if let Some(pid) = pagina.and_then(|p| page_ids.get(&p)) {
+            d.set("Dest", Object::Array(vec![Object::Reference(*pid), Object::Name(b"Fit".to_vec())]));
+        }
+        doc.set_object(item_ids[i], d);
+    }
+
+    // Radice /Outlines.
+    let top = &figli[&None];
+    let mut root = Dictionary::new();
+    root.set("Type", Object::Name(b"Outlines".to_vec()));
+    root.set("First", Object::Reference(item_ids[top[0]]));
+    root.set("Last", Object::Reference(item_ids[*top.last().unwrap()]));
+    root.set("Count", titoli.len() as i64);
+    doc.set_object(outlines_id, root);
+
+    // Collega l'outline al catalogo.
+    let catalog_id = doc
+        .trailer
+        .get(b"Root")
+        .and_then(|o| o.as_reference())
+        .map_err(|_| Errore::Pdfium("catalogo non trovato".into()))?;
+    doc.get_object_mut(catalog_id)
+        .and_then(|o| o.as_dict_mut())
+        .map_err(|e| Errore::Pdfium(format!("catalogo: {e}")))?
+        .set("Outlines", Object::Reference(outlines_id));
+
+    doc.save(destinazione).map_err(|e| Errore::Io(format!("salvataggio: {e}")))?;
+    Ok(titoli.len())
+}
+
+/// Livello numerico di un ruolo Hn (None per ruoli non titolo).
+fn livello_heading(ruolo: &str) -> Option<u8> {
+    ruolo.strip_prefix('H').and_then(|s| s.parse::<u8>().ok()).filter(|n| (1..=6).contains(n))
 }
 
 /// Restituisce una copia del dizionario ViewerPreferences, se presente.

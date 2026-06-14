@@ -67,6 +67,7 @@ pub fn run() {
             comandi::esporta_tag_stringa,
             comandi::salva_tag,
             comandi::correggi,
+            comandi::genera_segnalibri,
             comandi::riordina,
         ])
         .run(tauri::generate_context!())
