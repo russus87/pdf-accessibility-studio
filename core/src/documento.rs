@@ -35,7 +35,7 @@ fn cache() -> &'static Mutex<HashMap<PathBuf, PdfDocument<'static>>> {
 /// Esegue `f` su un documento, caricandolo nella cache se assente. Il lock e'
 /// tenuto per tutta l'operazione: va bene perche' Pdfium serializza comunque le
 /// chiamate (feature `thread_safe`).
-fn con_documento<R>(percorso: &Path, f: impl FnOnce(&PdfDocument) -> Risultato<R>) -> Risultato<R> {
+pub(crate) fn con_documento<R>(percorso: &Path, f: impl FnOnce(&PdfDocument) -> Risultato<R>) -> Risultato<R> {
     let mut mappa = cache().lock().unwrap();
     if !mappa.contains_key(percorso) {
         let doc = istanza()?.load_pdf_from_file(percorso, None)?;

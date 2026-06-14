@@ -38,6 +38,8 @@
     onclick={() => (schede.anteprime = !schede.anteprime)}>Anteprime</button>
   <button class="strumento" class:on={schede.pannello === "valida"} disabled={!s}
     onclick={() => schede.mostraPannello("valida")}>Valida</button>
+  <button class="strumento" class:on={schede.pannello === "indice"} disabled={!s}
+    onclick={() => schede.mostraPannello("indice")}>Indice</button>
   <button class="strumento" class:on={schede.pannello === "tag"} disabled={!s}
     onclick={() => schede.mostraPannello("tag")}>Tag</button>
   <button class="strumento" class:on={schede.pannello === "leggi"} disabled={!s}

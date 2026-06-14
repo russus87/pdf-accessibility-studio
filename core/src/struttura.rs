@@ -26,6 +26,9 @@ pub struct NodoTag {
     pub lang: Option<String>,
     /// Indice di pagina (0-based) a cui l'elemento si riferisce, se ricavabile.
     pub pagina: Option<i32>,
+    /// Riferimento all'oggetto PDF ("numero_generazione"), se l'elemento e' un
+    /// oggetto indiretto: serve per scriverci sopra (es. aggiungere Alt).
+    pub riferimento: Option<String>,
     /// Figli nell'albero.
     pub figli: Vec<NodoTag>,
 }
@@ -197,6 +200,7 @@ fn raccogli(
                     actual_text: stringa(doc, d, b"ActualText"),
                     lang: stringa(doc, d, b"Lang"),
                     pagina,
+                    riferimento: id.map(|(n, g)| format!("{n}_{g}")),
                     figli: Vec::new(),
                 };
                 if let Ok(k) = d.get(b"K") {

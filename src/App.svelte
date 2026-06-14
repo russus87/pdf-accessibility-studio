@@ -8,12 +8,13 @@
   import Anteprime from "./components/Anteprime.svelte";
   import PannelloValidazione from "./components/PannelloValidazione.svelte";
   import PannelloTag from "./components/PannelloTag.svelte";
+  import PannelloSegnalibri from "./components/PannelloSegnalibri.svelte";
   import LettoreVocale from "./components/LettoreVocale.svelte";
   import PannelloCorrezione from "./components/PannelloCorrezione.svelte";
   import Confronto from "./components/Confronto.svelte";
 
   const lateralePannello = $derived(
-    ["valida", "tag", "leggi", "correggi"].includes(schede.pannello) ? schede.pannello : null,
+    ["valida", "indice", "tag", "leggi", "correggi"].includes(schede.pannello) ? schede.pannello : null,
   );
 </script>
 
@@ -39,6 +40,7 @@
       {#if lateralePannello}
         <aside class="laterale">
           {#if lateralePannello === "valida"}<PannelloValidazione />
+          {:else if lateralePannello === "indice"}<PannelloSegnalibri />
           {:else if lateralePannello === "tag"}<PannelloTag />
           {:else if lateralePannello === "leggi"}<LettoreVocale />
           {:else if lateralePannello === "correggi"}<PannelloCorrezione />{/if}

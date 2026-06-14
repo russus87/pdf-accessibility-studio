@@ -35,6 +35,9 @@ export function valida(id) {
 export function alberoTag(id) {
   return invoke("albero_tag", { id });
 }
+export function segnalibri(id) {
+  return invoke("segnalibri", { id });
+}
 
 // --- Fase 3: testo per la lettura vocale ---
 export function testoDocumento(id) {
@@ -80,7 +83,7 @@ export async function salvaTag(id, formato) {
 // --- Correzione assistita ---
 /** Chiede dove salvare la copia corretta e applica le correzioni.
  *  Ritorna il percorso salvato, oppure null se annullato. */
-export async function correggi(id, { lang, titolo, displayDocTitle }) {
+export async function correggi(id, { lang, titolo, displayDocTitle, alt }) {
   const destinazione = await save({
     defaultPath: "corretto.pdf",
     filters: [{ name: "PDF", extensions: ["pdf"] }],
@@ -91,6 +94,7 @@ export async function correggi(id, { lang, titolo, displayDocTitle }) {
     lang: lang || null,
     titolo: titolo || null,
     displayDocTitle: !!displayDocTitle,
+    alt: alt || [],
     destinazione,
   });
   return destinazione;

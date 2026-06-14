@@ -56,6 +56,7 @@ pub fn run() {
             comandi::chiudi_documento,
             comandi::valida,
             comandi::albero_tag,
+            comandi::segnalibri,
             comandi::testo_documento,
             comandi::confronta,
             comandi::confronta_immagine,

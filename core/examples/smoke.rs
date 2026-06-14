@@ -23,6 +23,9 @@ fn main() {
         println!("    {:?} - {}", e.gravita, e.regola);
     }
 
+    let segn = pdfa_core::segnalibri::segnalibri(pa).expect("segnalibri");
+    println!("[segnalibri] {} voci", segn.len());
+
     let xml = pdfa_core::export::esporta_xml(pa).expect("xml");
     println!("[export xml] {} caratteri", xml.len());
     let json = pdfa_core::export::esporta_json(pa).expect("json");
@@ -34,6 +37,7 @@ fn main() {
         lang: Some("it-IT".into()),
         titolo: Some("Documento Corretto àèì".into()),
         display_doc_title: true,
+        ..Default::default()
     };
     pdfa_core::correzione::applica(pa, &fix, &correzioni).expect("correzione");
     let dopo = pdfa_core::valida(&fix).expect("valida dopo");

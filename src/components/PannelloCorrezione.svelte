@@ -2,7 +2,7 @@
   // Correzione assistita: imposta lingua, titolo e "mostra titolo", poi salva
   // una copia corretta del PDF (l'originale resta intatto).
   import { schede } from "../lib/schede.svelte.js";
-  import { correggi } from "../lib/api.js";
+  import { correggi, alberoTag } from "../lib/api.js";
 
   const s = $derived(schede.schedaAttiva);
 
@@ -12,9 +12,42 @@
   let esito = $state(null);
   let inCorso = $state(false);
 
+  // Figure presenti nel documento e testo Alt modificabile (ref -> testo).
+  let figure = $state([]);
+  let altValori = $state({});
+
   // Prefill del titolo con quello attuale della scheda quando cambia.
   $effect(() => {
     titolo = s?.titolo || "";
+  });
+
+  // Carica le figure (con riferimento) per l'editor Alt.
+  $effect(() => {
+    if (!s) return;
+    const id = s.id;
+    let annullato = false;
+    alberoTag(id)
+      .then((info) => {
+        if (annullato) return;
+        const trovate = [];
+        const valori = {};
+        const cammina = (nodi) => {
+          for (const n of nodi) {
+            if (n.ruolo === "Figure" && n.riferimento) {
+              trovate.push({ riferimento: n.riferimento, pagina: n.pagina, altAttuale: n.alt });
+              valori[n.riferimento] = n.alt || "";
+            }
+            cammina(n.figli);
+          }
+        };
+        cammina(info.radice);
+        figure = trovate;
+        altValori = valori;
+      })
+      .catch(() => {
+        figure = [];
+      });
+    return () => (annullato = true);
   });
 
   const lingue = [
@@ -31,7 +64,11 @@
     esito = null;
     inCorso = true;
     try {
-      const dest = await correggi(s.id, { lang, titolo, displayDocTitle });
+      // Includi solo gli Alt effettivamente compilati.
+      const alt = Object.entries(altValori)
+        .filter(([, testo]) => testo && testo.trim())
+        .map(([riferimento, testo]) => ({ riferimento, testo: testo.trim() }));
+      const dest = await correggi(s.id, { lang, titolo, displayDocTitle, alt });
       if (dest) {
         esito = { ok: true, dest };
       }
@@ -71,6 +108,22 @@
     <input type="checkbox" bind:checked={displayDocTitle} />
     Mostra il titolo nella barra (DisplayDocTitle)
   </label>
+
+  {#if figure.length}
+    <div class="figure">
+      <div class="titolo-sez">Testo alternativo immagini ({figure.length})</div>
+      {#each figure as f, i}
+        <label class="alt">
+          <span class="capo">
+            Figura {i + 1}
+            {#if f.pagina != null}<button class="vai" onclick={() => schede.vaiAPagina(f.pagina)}>pag. {f.pagina + 1}</button>{/if}
+            {#if !f.altAttuale}<span class="manca">manca</span>{/if}
+          </span>
+          <input type="text" bind:value={altValori[f.riferimento]} placeholder="Descrizione dell'immagine" />
+        </label>
+      {/each}
+    </div>
+  {/if}
 
   <button class="applica" onclick={applica} disabled={!s || inCorso}>
     {inCorso ? "Salvataggio…" : "Salva copia corretta…"}
@@ -115,6 +168,39 @@
   .nota.piccola {
     font-size: 12px;
     font-style: italic;
+  }
+  .figure {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 0 14px;
+    padding-top: 10px;
+    border-top: 1px solid var(--bordo);
+  }
+  .titolo-sez {
+    font-weight: 600;
+    font-size: 13px;
+  }
+  .alt .capo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .alt .vai {
+    background: var(--scheda);
+    border: 1px solid var(--bordo);
+    color: var(--testo-soft);
+    border-radius: 10px;
+    padding: 1px 8px;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .manca {
+    background: #4a2326;
+    color: #ff9a9a;
+    border-radius: 10px;
+    padding: 1px 8px;
+    font-size: 11px;
   }
   label {
     display: flex;

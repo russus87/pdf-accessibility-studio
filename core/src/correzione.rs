@@ -17,6 +17,9 @@ pub struct Correzioni {
     pub lang: Option<String>,
     pub titolo: Option<String>,
     pub display_doc_title: bool,
+    /// Testo alternativo da impostare su singoli elementi: (riferimento
+    /// "numero_generazione", testo Alt).
+    pub alt: Vec<(String, String)>,
 }
 
 /// Applica le correzioni a `origine` e salva il risultato in `destinazione`.
@@ -65,6 +68,18 @@ pub fn applica(origine: &Path, destinazione: &Path, c: &Correzioni) -> Risultato
         info.set("Title", stringa_utf16(t));
     }
 
+    // --- Alt su singoli elementi (figure) ---
+    for (riferimento, testo) in &c.alt {
+        if testo.trim().is_empty() {
+            continue;
+        }
+        if let Some(id) = parse_riferimento(riferimento) {
+            if let Ok(dict) = doc.get_object_mut(id).and_then(|o| o.as_dict_mut()) {
+                dict.set("Alt", stringa_utf16(testo));
+            }
+        }
+    }
+
     doc.save(destinazione)
         .map_err(|e| Errore::Io(format!("salvataggio: {e}")))?;
     Ok(())
@@ -78,6 +93,12 @@ fn leggi_viewer_preferences(doc: &Document, catalog_id: lopdf::ObjectId) -> Opti
         Object::Dictionary(d) => Some(d.clone()),
         _ => None,
     }
+}
+
+/// Converte un riferimento "numero_generazione" in un ObjectId.
+fn parse_riferimento(s: &str) -> Option<lopdf::ObjectId> {
+    let (n, g) = s.split_once('_')?;
+    Some((n.parse().ok()?, g.parse().ok()?))
 }
 
 /// Codifica una stringa come testo PDF UTF-16BE (gestisce gli accenti).

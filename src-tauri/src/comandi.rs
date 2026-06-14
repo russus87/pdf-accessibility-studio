@@ -101,6 +101,13 @@ pub fn albero_tag(id: String, stato: State<StatoApp>) -> Result<pdfa_core::InfoS
     pdfa_core::analizza(&path).map_err(|e| e.to_string())
 }
 
+/// Ritorna l'indice/outline (segnalibri) del PDF.
+#[tauri::command]
+pub fn segnalibri(id: String, stato: State<StatoApp>) -> Result<Vec<pdfa_core::segnalibri::Segnalibro>, String> {
+    let path = percorso(&stato, &id)?;
+    pdfa_core::segnalibri::segnalibri(&path).map_err(|e| e.to_string())
+}
+
 // --- Fase 3: testo per la sintesi vocale --------------------------------------
 
 /// Ritorna il testo di ogni pagina, in ordine: la UI lo legge con il sintetizzatore.
@@ -215,14 +222,22 @@ fn nome(p: &std::path::Path) -> String {
 
 // --- Correzione assistita -----------------------------------------------------
 
-/// Applica le correzioni di accessibilita' (lingua/titolo/DisplayDocTitle) e
-/// salva una copia corretta nel percorso indicato. Non tocca l'originale.
+/// Un Alt da impostare su un elemento (dal pannello correzione).
+#[derive(serde::Deserialize)]
+pub struct AltInput {
+    pub riferimento: String,
+    pub testo: String,
+}
+
+/// Applica le correzioni di accessibilita' (lingua/titolo/DisplayDocTitle e Alt
+/// sulle figure) e salva una copia corretta. Non tocca l'originale.
 #[tauri::command]
 pub fn correggi(
     id: String,
     lang: Option<String>,
     titolo: Option<String>,
     display_doc_title: bool,
+    alt: Option<Vec<AltInput>>,
     destinazione: String,
     stato: State<StatoApp>,
 ) -> Result<(), String> {
@@ -231,6 +246,11 @@ pub fn correggi(
         lang: lang.filter(|s| !s.trim().is_empty()),
         titolo: titolo.filter(|s| !s.trim().is_empty()),
         display_doc_title,
+        alt: alt
+            .unwrap_or_default()
+            .into_iter()
+            .map(|a| (a.riferimento, a.testo))
+            .collect(),
     };
     pdfa_core::correzione::applica(&path, std::path::Path::new(&destinazione), &correzioni)
         .map_err(|e| e.to_string())

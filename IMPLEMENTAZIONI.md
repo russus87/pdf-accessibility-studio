@@ -61,8 +61,20 @@ Legenda: ✅ fatto · 🚧 in corso · ⏳ pianificato · ❌ fuori scope
   copia corretta (l'originale resta intatto) — `core/correzione.rs` (`lopdf`) +
   `components/PannelloCorrezione.svelte`. Verificato: validazione da 2 errori → 1.
 
+## Fase 7 — Completamento ✅
+
+- ✅ **Editor Alt per singole figure**: ogni `NodoTag` ha un `riferimento` (ObjectId);
+  il pannello correzione elenca le figure (con badge "manca") e scrive l'Alt sul
+  giusto oggetto salvando una copia — `core/correzione.rs`, `core/struttura.rs`.
+  Verificato da test (`core/tests/pipeline.rs`): round-trip su PDF taggato minimale.
+- ✅ **Indice / segnalibri navigabili** (outline Pdfium) — `core/segnalibri.rs` +
+  `components/PannelloSegnalibri.svelte`; click → vai alla pagina.
+- ✅ **Lettura in ordine logico + Alt immagini + evidenziazione per parola**:
+  il lettore intercala il testo alternativo delle figure e usa gli eventi
+  `onboundary` per evidenziare la parola in lettura; opzione "fai seguire il visore".
+
 ## Idee future ⏳
 
-- ⏳ Aggiunta di Alt alle singole figure (editor mirato sull'elemento)
-- ⏳ Segnalibri / outline navigabile, ordine di lettura editabile
-- ⏳ Lettura vocale nell'esatto ordine dei tag (oggi: ordine di pagina) + highlight per parola
+- ⏳ Ordine di lettura editabile (riordino dello structure tree)
+- ⏳ Estrazione testo nell'esatto ordine MCID dei tag (oggi: ordine di pagina/contenuto)
+- ⏳ Tabelle: editor intestazioni (TH/scope); ruoli/heading correggibili dall'app
