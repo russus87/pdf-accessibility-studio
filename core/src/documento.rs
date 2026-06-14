@@ -40,14 +40,35 @@ pub fn apri(percorso: &Path) -> Risultato<InfoDocumento> {
 /// Renderizza una pagina (indice 0-based) a una data larghezza in pixel e
 /// restituisce i byte PNG. L'altezza segue le proporzioni della pagina.
 pub fn render_pagina(percorso: &Path, indice: i32, larghezza: i32) -> Risultato<Vec<u8>> {
+    let immagine = render_immagine(percorso, indice, larghezza)?;
+    let mut buffer = Vec::new();
+    immagine.write_to(&mut Cursor::new(&mut buffer), image::ImageFormat::Png)?;
+    Ok(buffer)
+}
+
+/// Come `render_pagina` ma restituisce l'immagine grezza (per il confronto
+/// pixel-to-pixel, Fase 4).
+pub fn render_immagine(percorso: &Path, indice: i32, larghezza: i32) -> Risultato<image::DynamicImage> {
     let pdfium = istanza()?;
     let doc = pdfium.load_pdf_from_file(percorso, None)?;
     let pagina = doc.pages().get(indice)?;
 
     let config = PdfRenderConfig::new().set_target_width(larghezza);
-    let immagine = pagina.render_with_config(&config)?.as_image()?;
+    let bitmap = pagina.render_with_config(&config)?;
+    let immagine = bitmap.as_image()?;
+    Ok(immagine)
+}
 
-    let mut buffer = Vec::new();
-    immagine.write_to(&mut Cursor::new(&mut buffer), image::ImageFormat::Png)?;
-    Ok(buffer)
+/// Estrae il testo di ogni pagina (una stringa per pagina), in ordine di
+/// pagina. E' la base per la lettura vocale (Fase 3) e il confronto testuale
+/// (Fase 4).
+pub fn testo_pagine(percorso: &Path) -> Risultato<Vec<String>> {
+    let pdfium = istanza()?;
+    let doc = pdfium.load_pdf_from_file(percorso, None)?;
+    let mut pagine = Vec::new();
+    for pagina in doc.pages().iter() {
+        let testo = pagina.text().map(|t| t.all()).unwrap_or_default();
+        pagine.push(testo);
+    }
+    Ok(pagine)
 }

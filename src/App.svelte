@@ -1,9 +1,18 @@
 <script>
-  // Shell dell'applicazione: barra schede, toolbar, visore e banner errori.
+  // Shell dell'applicazione: barra schede, toolbar, visore, pannelli laterali
+  // (validazione / tag / lettura) e vista di confronto.
   import { schede } from "./lib/schede.svelte.js";
   import BarraSchede from "./components/BarraSchede.svelte";
   import BarraStrumenti from "./components/BarraStrumenti.svelte";
   import Visore from "./components/Visore.svelte";
+  import PannelloValidazione from "./components/PannelloValidazione.svelte";
+  import PannelloTag from "./components/PannelloTag.svelte";
+  import LettoreVocale from "./components/LettoreVocale.svelte";
+  import Confronto from "./components/Confronto.svelte";
+
+  const lateralePannello = $derived(
+    ["valida", "tag", "leggi"].includes(schede.pannello) ? schede.pannello : null,
+  );
 </script>
 
 <main>
@@ -17,7 +26,20 @@
     </div>
   {/if}
 
-  <Visore />
+  {#if schede.pannello === "confronta"}
+    <Confronto />
+  {:else}
+    <div class="area">
+      <Visore />
+      {#if lateralePannello}
+        <aside class="laterale">
+          {#if lateralePannello === "valida"}<PannelloValidazione />
+          {:else if lateralePannello === "tag"}<PannelloTag />
+          {:else if lateralePannello === "leggi"}<LettoreVocale />{/if}
+        </aside>
+      {/if}
+    </div>
+  {/if}
 </main>
 
 <style>
@@ -25,6 +47,18 @@
     display: flex;
     flex-direction: column;
     height: 100vh;
+    overflow: hidden;
+  }
+  .area {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+  }
+  .laterale {
+    width: 380px;
+    flex: none;
+    border-left: 1px solid var(--bordo);
+    background: var(--sfondo);
     overflow: hidden;
   }
   .banner-errore {

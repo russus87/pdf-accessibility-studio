@@ -31,6 +31,17 @@
   <button disabled={!s} onclick={() => zoom(0.8)} aria-label="Riduci zoom">−</button>
   <span class="conteggio">{s ? Math.round((s.zoom / 900) * 100) : 100}%</span>
   <button disabled={!s} onclick={() => zoom(1.25)} aria-label="Aumenta zoom">+</button>
+
+  <span class="spazio"></span>
+
+  <button class="strumento" class:on={schede.pannello === "valida"} disabled={!s}
+    onclick={() => schede.mostraPannello("valida")}>Valida</button>
+  <button class="strumento" class:on={schede.pannello === "tag"} disabled={!s}
+    onclick={() => schede.mostraPannello("tag")}>Tag</button>
+  <button class="strumento" class:on={schede.pannello === "leggi"} disabled={!s}
+    onclick={() => schede.mostraPannello("leggi")}>Leggi</button>
+  <button class="strumento" class:on={schede.pannello === "confronta"} disabled={schede.schede.length < 2}
+    onclick={() => schede.mostraPannello("confronta")}>Confronta</button>
 </div>
 
 <style>
@@ -69,5 +80,13 @@
     height: 22px;
     background: var(--bordo);
     margin: 0 6px;
+  }
+  .spazio {
+    flex: 1;
+  }
+  .toolbar button.strumento.on {
+    background: var(--accento);
+    color: #fff;
+    border-color: var(--accento);
   }
 </style>

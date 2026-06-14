@@ -15,6 +15,15 @@ thiserror = "2"
 pdfium-render = { version = "0.9", features = ["thread_safe", "image_025"] }
 # Codifica PNG delle pagine renderizzate da mandare alla UI.
 image = { version = "0.25", default-features = false, features = ["png"] }
+# Parser PDF a basso livello: structure tree / tag (validazione, confronto, export).
+lopdf = "0.41"
+# Diff testuale per il confronto tra PDF.
+similar = "2"
+# Generazione del report di confronto in PDF (font built-in, niente font esterni).
+printpdf = "0.9"
+# Export dei tag in JSON e codifica base64 delle immagini di diff.
+serde_json = "1"
+base64 = "0.22"
 
 [dev-dependencies]
 tempfile = "3"

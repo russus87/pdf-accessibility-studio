@@ -20,26 +20,38 @@ Legenda: ✅ fatto · 🚧 in corso · ⏳ pianificato · ❌ fuori scope
 - ✅ GitHub Actions: build Win/Mac/Linux, pacchetto Arch `.pkg.tar.zst`, repo `-dist` per auto-update
 - ✅ Icone, PKGBUILD, file `.desktop`
 
-## Fase 2 — Validazione accessibilità ⏳
+## Fase 2 — Validazione accessibilità ✅
 
-- ⏳ Lettura structure tree / tag (StructTreeRoot, ruoli) — `lopdf`
-- ⏳ Regole base (PDF/UA + WCAG): documento taggato, `/Lang`, titolo nei metadati,
-  alt-text immagini, intestazioni tabelle, ordine di lettura
-- ⏳ Pannello report con esiti per regola e collegamento all'elemento
+- ✅ Lettura structure tree / tag (StructTreeRoot, ruoli, RoleMap, Alt, Lang) — `core/struttura.rs` (`lopdf`)
+- ✅ Motore di regole PDF/UA + WCAG — `core/validazione.rs`: documento taggato,
+  `/Lang`, titolo nei metadati, DisplayDocTitle, alt-text figure, TH nelle tabelle,
+  testo dei link, presenza di intestazioni
+- ✅ Pannello esiti per gravità (errore/avviso/ok) — `components/PannelloValidazione.svelte`
+- ✅ Comandi `valida` / `albero_tag`
 
-## Fase 3 — Sintesi vocale (stile screen reader) ⏳
+## Fase 3 — Sintesi vocale (stile screen reader) ✅
 
-- ⏳ Lettura nell'ordine logico dei tag con evidenziazione — crate `tts`
-- ⏳ Controlli voce/velocità, play/pausa, navigazione per elemento
+- ✅ Estrazione testo per pagina — `core/documento.rs::testo_pagine`
+- ✅ Lettura frase per frase con evidenziazione, click per saltare a una frase —
+  `components/LettoreVocale.svelte` (Web Speech API del webview)
+- ✅ Controlli play/pausa/stop, scelta voce, velocità
+- ⏳ Futuro: lettura nell'esatto ordine dei tag (oggi: ordine di pagina) e highlight per parola
 
-## Fase 4 — Confronto PDF ⏳
+## Fase 4 — Confronto PDF ✅
 
-- ⏳ Confronto **testuale** (diff con `similar`)
-- ⏳ Confronto **immagine** pixel-to-pixel (rendering + heatmap differenze)
-- ⏳ Confronto **per tag/struttura**
-- ⏳ Report in **HTML** e **PDF** (`printpdf`/`genpdf` dallo stesso modello di diff)
+- ✅ Confronto **testuale** (diff con `similar`) — `core/confronto.rs`
+- ✅ Confronto **immagine** pixel-to-pixel (rendering + heatmap rossa) — `core/confronto.rs`
+- ✅ Confronto **per tag/struttura** (sequenza ruoli indentata)
+- ✅ Report in **HTML** e **PDF** dallo stesso modello (`printpdf` via `from_html`)
+- ✅ Vista `components/Confronto.svelte` + comandi `confronta` / `confronta_immagine` / `report_html` / `salva_report`
 
-## Fase 5 — Export tag e rifiniture ⏳
+## Fase 5 — Export tag ✅
 
-- ⏳ Export dell'albero dei tag (es. JSON/XML)
-- ⏳ Pannello struttura navigabile, segnalibri, anteprime pagine
+- ✅ Export dell'albero dei tag in **JSON** e **XML** — `core/export.rs`
+- ✅ Pannello struttura + pulsanti export — `components/PannelloTag.svelte` + comandi `esporta_tag_stringa` / `salva_tag`
+
+## Idee future ⏳
+
+- ⏳ Anteprime pagine (thumbnail), segnalibri, pannello struttura navigabile cliccabile
+- ⏳ Cache dei documenti aperti (oggi si riapre il file ad ogni render)
+- ⏳ Correzione assistita dei problemi di accessibilità (aggiunta Alt, lingua, titolo)

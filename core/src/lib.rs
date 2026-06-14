@@ -8,9 +8,15 @@
 //! Le fasi successive aggiungeranno: validazione accessibilita', sintesi
 //! vocale (ordine logico dei tag), confronto (testo/pixel/tag), export tag.
 
+pub mod confronto;
 pub mod documento;
 pub mod errore;
+pub mod export;
 pub mod pdfium;
+pub mod struttura;
+pub mod validazione;
 
-pub use documento::{apri, render_pagina, InfoDocumento};
+pub use documento::{apri, render_pagina, testo_pagine, InfoDocumento};
 pub use errore::{Errore, Risultato};
+pub use struttura::{analizza, InfoStruttura};
+pub use validazione::{valida, Report};

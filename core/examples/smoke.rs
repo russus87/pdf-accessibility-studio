@@ -1,12 +1,44 @@
-// Smoke test manuale: carica Pdfium da ./pdfium, apre un PDF e renderizza pag.0.
-// Uso: cargo run -p pdfa-core --example smoke -- /percorso/file.pdf
-use std::path::PathBuf;
+// Smoke test manuale di tutta la logica del core.
+// Uso: cargo run -p pdfa-core --example smoke -- file_a.pdf [file_b.pdf]
+use std::path::{Path, PathBuf};
+
 fn main() {
-    let arg = std::env::args().nth(1).expect("passa il percorso di un PDF");
+    let a = std::env::args().nth(1).expect("passa almeno un PDF");
+    let b = std::env::args().nth(2);
     pdfa_core::pdfium::inizializza(&[PathBuf::from("pdfium")]).expect("pdfium non caricato");
-    let info = pdfa_core::apri(std::path::Path::new(&arg)).expect("apertura fallita");
-    println!("pagine={} titolo={:?}", info.pagine, info.titolo);
-    let png = pdfa_core::render_pagina(std::path::Path::new(&arg), 0, 800).expect("render fallito");
-    std::fs::write("/tmp/smoke_out.png", &png).unwrap();
-    println!("PNG scritto: {} byte -> /tmp/smoke_out.png", png.len());
+
+    let pa = Path::new(&a);
+    let info = pdfa_core::apri(pa).expect("apertura");
+    println!("[apri] pagine={} titolo={:?}", info.pagine, info.titolo);
+
+    let png = pdfa_core::render_pagina(pa, 0, 600).expect("render");
+    println!("[render] {} byte", png.len());
+
+    let testo = pdfa_core::testo_pagine(pa).expect("testo");
+    println!("[testo] {} pagine, pag1 {} caratteri", testo.len(), testo.first().map(|s| s.len()).unwrap_or(0));
+
+    let report = pdfa_core::valida(pa).expect("valida");
+    println!("[valida] {} errori, {} avvisi:", report.errori, report.avvisi);
+    for e in &report.esiti {
+        println!("    {:?} - {}", e.gravita, e.regola);
+    }
+
+    let xml = pdfa_core::export::esporta_xml(pa).expect("xml");
+    println!("[export xml] {} caratteri", xml.len());
+    let json = pdfa_core::export::esporta_json(pa).expect("json");
+    println!("[export json] {} caratteri", json.len());
+
+    if let Some(b) = b {
+        let pb = Path::new(&b);
+        let dt = pdfa_core::confronto::confronta_testo(pa, pb).expect("confronto testo");
+        println!("[confronto testo] uguali={} +{} -{}", dt.uguali, dt.aggiunte, dt.rimosse);
+        let dtag = pdfa_core::confronto::confronta_tag(pa, pb).expect("confronto tag");
+        println!("[confronto tag] uguali={} +{} -{}", dtag.uguali, dtag.aggiunte, dtag.rimosse);
+        let ci = pdfa_core::confronto::confronta_immagine(pa, pb, 0, 500).expect("confronto img");
+        println!("[confronto img] {:.2}% diversi ({} px)", ci.percentuale, ci.pixel_diversi);
+
+        let pdf = pdfa_core::confronto::report_pdf("A.pdf", "B.pdf", &dt, &dtag).expect("report pdf");
+        std::fs::write("/tmp/report.pdf", &pdf).unwrap();
+        println!("[report pdf] {} byte -> /tmp/report.pdf", pdf.len());
+    }
 }

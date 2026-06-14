@@ -14,6 +14,13 @@ class GestoreSchede {
   attiva = $state(null);
   /** messaggio di errore eventuale */
   errore = $state(null);
+  /** pannello laterale attivo: "valida" | "tag" | "leggi" | "confronta" | null */
+  pannello = $state(null);
+
+  /** Apre/chiude un pannello laterale (toggle). */
+  mostraPannello(nome) {
+    this.pannello = this.pannello === nome ? null : nome;
+  }
 
   /** Apre uno o piu' PDF scelti dall'utente. */
   async apriDaDialogo() {

@@ -54,6 +54,15 @@ pub fn run() {
             comandi::apri_pdf,
             comandi::render_pagina,
             comandi::chiudi_documento,
+            comandi::valida,
+            comandi::albero_tag,
+            comandi::testo_documento,
+            comandi::confronta,
+            comandi::confronta_immagine,
+            comandi::report_html,
+            comandi::salva_report,
+            comandi::esporta_tag_stringa,
+            comandi::salva_tag,
         ])
         .run(tauri::generate_context!())
         .expect("errore nell'avvio di PDF Accessibility Studio");
