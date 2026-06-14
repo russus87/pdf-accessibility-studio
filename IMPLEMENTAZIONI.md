@@ -141,7 +141,19 @@ Alt, cambio ruolo e riordino su un PDF taggato costruito al volo.
   ogni operazione salva una copia. Test: elimina 3→2, estrai→2, riordina→3, unisci 3+2→5, ruota→90°.
 - ✅ Pannello "Pagine": griglia con selezione (ruota/elimina/estrai/unisci) e modalità riordina.
 
+## Fase 16 — Ricerca testo ✅
+
+- ✅ `core/ricerca.rs`: ricerca case-insensitive per pagina con estratto di contesto.
+- ✅ Pannello "Cerca" (toolbar) con risultati cliccabili che saltano alla pagina.
+
+## Fase 17 — Rifiniture app ✅
+
+- ✅ **File recenti** (salvati nelle impostazioni, mostrati nello stato vuoto).
+- ✅ **Scorciatoie**: Ctrl+O apri, Ctrl+W chiudi scheda, Ctrl+F cerca, frecce/PgUp-PgDn pagina.
+- ✅ **Tema chiaro/scuro** (persistito in localStorage, toggle in toolbar).
+- ✅ **Apri esterno / Stampa**: apre il PDF nel programma di sistema (plugin opener).
+
 ## Idee future ⏳
 
-- ⏳ Ricerca testo nel documento, stampa
-- ⏳ Qualità app (file recenti, scorciatoie, tema chiaro)
+- ⏳ Anteprime con drag&drop per riordino, miniature nel pannello Pagine
+- ⏳ Estrazione testo MCID con font CID complessi

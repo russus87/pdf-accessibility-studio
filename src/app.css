@@ -16,6 +16,23 @@
   color-scheme: dark;
 }
 
+/* Tema chiaro */
+:root[data-tema="chiaro"] {
+  --sfondo: #f4f5f7;
+  --tela: #e7e9ee;
+  --barra: #e9ebef;
+  --scheda: #dfe2e8;
+  --bordo: #c7ccd4;
+  --testo: #1d2127;
+  --testo-soft: #5b6470;
+  --accento: #c9781f;
+  --accento-soft: #d8dbe1;
+  --errore: #b3261e;
+  --errore-sfondo: #f7d9d7;
+
+  color-scheme: light;
+}
+
 * {
   box-sizing: border-box;
 }

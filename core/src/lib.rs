@@ -18,6 +18,7 @@ pub mod lettura;
 pub mod ocr;
 pub mod pagine;
 pub mod pdfium;
+pub mod ricerca;
 pub mod segnalibri;
 pub mod struttura;
 pub mod validazione;

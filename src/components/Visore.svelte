@@ -1,9 +1,16 @@
 <script>
   // Visore della pagina corrente: chiede al backend il rendering PNG e lo mostra.
   import { schede } from "../lib/schede.svelte.js";
-  import { renderPagina } from "../lib/api.js";
+  import { renderPagina, fileRecenti } from "../lib/api.js";
 
   const s = $derived(schede.schedaAttiva);
+
+  // File recenti, mostrati nello stato vuoto.
+  let recenti = $state([]);
+  const nomeFile = (p) => p.split(/[\\/]/).pop();
+  $effect(() => {
+    if (!s) fileRecenti().then((r) => (recenti = r)).catch(() => {});
+  });
 
   let src = $state(null);
   let caricamento = $state(false);
@@ -47,6 +54,14 @@
       <h2>PDF Accessibility Studio</h2>
       <p>Apri un PDF per iniziare, o trascinalo nella finestra.</p>
       <button onclick={() => schede.apriDaDialogo()}>Apri PDF</button>
+      {#if recenti.length}
+        <div class="recenti">
+          <div class="rec-tit">Recenti</div>
+          {#each recenti as r}
+            <button class="rec" title={r} onclick={() => schede.apri(r)}>{nomeFile(r)}</button>
+          {/each}
+        </div>
+      {/if}
     </div>
   {:else if erroreRender}
     <div class="errore-render">
@@ -96,6 +111,35 @@
     padding: 10px 20px;
     cursor: pointer;
     font-size: 14px;
+  }
+  .recenti {
+    margin-top: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: center;
+  }
+  .rec-tit {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 4px;
+  }
+  button.rec {
+    margin: 0;
+    background: transparent;
+    color: var(--accento);
+    border: none;
+    padding: 3px 8px;
+    font-size: 13px;
+    cursor: pointer;
+    max-width: 320px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  button.rec:hover {
+    text-decoration: underline;
   }
   .errore-render code {
     display: block;

@@ -1,8 +1,16 @@
 <script>
   // Toolbar: apertura, navigazione pagine e zoom. Opera sulla scheda attiva.
   import { schede } from "../lib/schede.svelte.js";
+  import { apriEsterno } from "../lib/api.js";
+  import { applicaTema } from "../lib/tema.js";
 
   const s = $derived(schede.schedaAttiva);
+
+  let tema = $state(document.documentElement.dataset.tema || "scuro");
+  function cambiaTema() {
+    tema = tema === "scuro" ? "chiaro" : "scuro";
+    applicaTema(tema);
+  }
 
   function vai(delta) {
     if (!s) return;
@@ -40,6 +48,8 @@
     onclick={() => schede.mostraPannello("pagine")}>Pagine</button>
   <button class="strumento" class:on={schede.pannello === "valida"} disabled={!s}
     onclick={() => schede.mostraPannello("valida")}>Valida</button>
+  <button class="strumento" class:on={schede.pannello === "cerca"} disabled={!s}
+    onclick={() => schede.mostraPannello("cerca")}>Cerca</button>
   <button class="strumento" class:on={schede.pannello === "indice"} disabled={!s}
     onclick={() => schede.mostraPannello("indice")}>Indice</button>
   <button class="strumento" class:on={schede.pannello === "tag"} disabled={!s}
@@ -50,6 +60,12 @@
     onclick={() => schede.mostraPannello("correggi")}>Correggi</button>
   <button class="strumento" class:on={schede.pannello === "confronta"} disabled={schede.schede.length < 2}
     onclick={() => schede.mostraPannello("confronta")}>Confronta</button>
+
+  <span class="sep"></span>
+
+  <button class="strumento" disabled={!s} title="Apri nel programma di sistema (per stampare)"
+    onclick={() => apriEsterno(s.percorso)}>Stampa/Esterno</button>
+  <button class="strumento" title="Cambia tema" onclick={cambiaTema}>{tema === "scuro" ? "☀" : "🌙"}</button>
 </div>
 
 <style>

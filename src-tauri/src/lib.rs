@@ -53,6 +53,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             comandi::apri_pdf,
+            comandi::file_recenti,
             comandi::render_pagina,
             comandi::chiudi_documento,
             comandi::valida,
@@ -76,6 +77,7 @@ pub fn run() {
             comandi::ocr_info,
             comandi::esegui_ocr,
             comandi::contrasto,
+            comandi::cerca,
             comandi::ruota_pagine,
             comandi::elimina_pagine,
             comandi::estrai_pagine,

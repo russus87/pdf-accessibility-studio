@@ -16,12 +16,24 @@ pub struct Impostazioni {
     pub anthropic_api_key: Option<String>,
     #[serde(default = "modello_default")]
     pub modello: String,
+    /// File aperti di recente (più recenti in testa, max 10).
+    #[serde(default)]
+    pub recenti: Vec<String>,
 }
 
 impl Default for Impostazioni {
     fn default() -> Self {
-        Impostazioni { anthropic_api_key: None, modello: modello_default() }
+        Impostazioni { anthropic_api_key: None, modello: modello_default(), recenti: Vec::new() }
     }
+}
+
+/// Registra un file tra i recenti (in testa, senza duplicati, max 10).
+pub fn aggiungi_recente(app: &tauri::AppHandle, percorso: &str) {
+    let mut i = carica(app);
+    i.recenti.retain(|p| p != percorso);
+    i.recenti.insert(0, percorso.to_string());
+    i.recenti.truncate(10);
+    let _ = salva(app, &i);
 }
 
 fn modello_default() -> String {

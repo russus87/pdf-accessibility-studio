@@ -1,6 +1,17 @@
 // Wrapper sottile sui comandi Tauri del backend Rust.
 import { invoke } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
+import { openPath } from "@tauri-apps/plugin-opener";
+
+/** Elenco dei file aperti di recente. */
+export function fileRecenti() {
+  return invoke("file_recenti");
+}
+
+/** Apre il file nel programma di sistema (per stampare o usare un altro lettore). */
+export function apriEsterno(percorso) {
+  return openPath(percorso);
+}
 
 /** Mostra il dialogo di sistema per scegliere uno o piu' PDF. */
 export async function scegliPdf() {
@@ -35,6 +46,11 @@ export function valida(id) {
 // --- Contrasto colori ---
 export function contrasto(id, pagina) {
   return invoke("contrasto", { id, pagina });
+}
+
+// --- Ricerca testo ---
+export function cerca(id, query) {
+  return invoke("cerca", { id, query });
 }
 
 // --- Operazioni sulle pagine ---

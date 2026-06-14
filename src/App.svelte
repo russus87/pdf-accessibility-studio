@@ -4,6 +4,39 @@
   import { getCurrentWebview } from "@tauri-apps/api/webview";
   import { schede } from "./lib/schede.svelte.js";
 
+  // Scorciatoie da tastiera.
+  $effect(() => {
+    function onkey(e) {
+      const tag = (e.target?.tagName || "").toLowerCase();
+      const sto_scrivendo = tag === "input" || tag === "textarea" || tag === "select";
+      if (e.ctrlKey && e.key.toLowerCase() === "o") {
+        e.preventDefault();
+        schede.apriDaDialogo();
+        return;
+      }
+      if (e.ctrlKey && e.key.toLowerCase() === "w") {
+        e.preventDefault();
+        if (schede.attiva) schede.chiudi(schede.attiva);
+        return;
+      }
+      if (e.ctrlKey && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        if (schede.schedaAttiva) schede.mostraPannello("cerca");
+        return;
+      }
+      if (sto_scrivendo) return;
+      const s = schede.schedaAttiva;
+      if (!s) return;
+      if (e.key === "ArrowRight" || e.key === "PageDown") {
+        schede.vaiAPagina(Math.min(s.pagina + 1, s.pagine - 1));
+      } else if (e.key === "ArrowLeft" || e.key === "PageUp") {
+        schede.vaiAPagina(Math.max(s.pagina - 1, 0));
+      }
+    }
+    window.addEventListener("keydown", onkey);
+    return () => window.removeEventListener("keydown", onkey);
+  });
+
   // Apertura via trascinamento di file PDF nella finestra.
   $effect(() => {
     let stop;
@@ -29,10 +62,11 @@
   import LettoreVocale from "./components/LettoreVocale.svelte";
   import PannelloCorrezione from "./components/PannelloCorrezione.svelte";
   import PannelloPagine from "./components/PannelloPagine.svelte";
+  import PannelloRicerca from "./components/PannelloRicerca.svelte";
   import Confronto from "./components/Confronto.svelte";
 
   const lateralePannello = $derived(
-    ["valida", "indice", "tag", "leggi", "correggi", "pagine"].includes(schede.pannello) ? schede.pannello : null,
+    ["valida", "indice", "tag", "leggi", "correggi", "pagine", "cerca"].includes(schede.pannello) ? schede.pannello : null,
   );
 </script>
 
@@ -62,7 +96,8 @@
           {:else if lateralePannello === "tag"}<PannelloTag />
           {:else if lateralePannello === "leggi"}<LettoreVocale />
           {:else if lateralePannello === "correggi"}<PannelloCorrezione />
-          {:else if lateralePannello === "pagine"}<PannelloPagine />{/if}
+          {:else if lateralePannello === "pagine"}<PannelloPagine />
+          {:else if lateralePannello === "cerca"}<PannelloRicerca />{/if}
         </aside>
       {/if}
     </div>

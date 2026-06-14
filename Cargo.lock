@@ -3468,7 +3468,7 @@ dependencies = [
 
 [[package]]
 name = "pdf-accessibility-studio"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "base64 0.22.1",
  "log",

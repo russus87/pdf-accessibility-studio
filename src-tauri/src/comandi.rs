@@ -21,7 +21,7 @@ pub struct RispostaApri {
 /// Apre un PDF dato il percorso (scelto dalla UI con il dialogo di sistema) e
 /// registra una nuova scheda. Restituisce id, numero di pagine e titolo.
 #[tauri::command]
-pub fn apri_pdf(percorso: String, stato: State<StatoApp>) -> Result<RispostaApri, String> {
+pub fn apri_pdf(app: tauri::AppHandle, percorso: String, stato: State<StatoApp>) -> Result<RispostaApri, String> {
     let path = PathBuf::from(&percorso);
     let info = pdfa_core::apri(&path).map_err(|e| e.to_string())?;
 
@@ -32,12 +32,20 @@ pub fn apri_pdf(percorso: String, stato: State<StatoApp>) -> Result<RispostaApri
         .unwrap()
         .insert(id.clone(), path);
 
+    crate::ia::aggiungi_recente(&app, &percorso);
+
     Ok(RispostaApri {
         id,
         percorso,
         pagine: info.pagine,
         titolo: info.titolo,
     })
+}
+
+/// Elenco dei file aperti di recente.
+#[tauri::command]
+pub fn file_recenti(app: tauri::AppHandle) -> Vec<String> {
+    crate::ia::carica(&app).recenti
 }
 
 /// Renderizza una pagina (indice 0-based) alla larghezza richiesta e la
@@ -295,6 +303,13 @@ pub async fn suggerisci_alt(
     let path = percorso(&stato, &id)?;
     let png = pdfa_core::render_pagina(&path, pagina, 1024).map_err(|e| e.to_string())?;
     crate::ia::alt_da_immagine(&i.modello, &chiave, png).await
+}
+
+/// Cerca testo nel documento.
+#[tauri::command]
+pub fn cerca(id: String, query: String, stato: State<StatoApp>) -> Result<Vec<pdfa_core::ricerca::Occorrenza>, String> {
+    let path = percorso(&stato, &id)?;
+    pdfa_core::ricerca::cerca(&path, &query).map_err(|e| e.to_string())
 }
 
 // --- Operazioni sulle pagine -------------------------------------------------
