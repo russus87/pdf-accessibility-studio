@@ -1,0 +1,6 @@
+# Workspace Cargo di PDF Accessibility Studio.
+# Stessa struttura di oxiterm/rustman: la logica (core) e' Rust puro e
+# non dipende da Tauri, cosi' potra' essere riusata da un eventuale server web.
+[workspace]
+members = ["core", "src-tauri"]
+resolver = "2"

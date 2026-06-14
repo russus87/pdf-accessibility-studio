@@ -1,0 +1,20 @@
+# Crate "core": tutta la logica riutilizzabile sui PDF (apertura, rendering,
+# in futuro validazione accessibilita', confronto, export dei tag).
+# Non dipende da Tauri, cosi' potra' servire anche un eventuale backend web.
+[package]
+name = "pdfa-core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+thiserror = "2"
+# Wrapper idiomatico su Pdfium: rendering pagine, estrazione testo, introspezione.
+# "thread_safe" serializza le chiamate cosi' possiamo tenere Pdfium in uno stato
+# globale condiviso tra i thread di Tauri. "image" espone le pagine come immagini.
+pdfium-render = { version = "0.9", features = ["thread_safe", "image_025"] }
+# Codifica PNG delle pagine renderizzate da mandare alla UI.
+image = { version = "0.25", default-features = false, features = ["png"] }
+
+[dev-dependencies]
+tempfile = "3"

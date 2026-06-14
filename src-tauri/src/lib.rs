@@ -1,0 +1,60 @@
+//! Bootstrap dell'app Tauri: plugin, stato condiviso, caricamento di Pdfium e
+//! registrazione dei comandi.
+
+mod comandi;
+mod stato;
+
+use std::path::PathBuf;
+
+use tauri::Manager;
+
+use stato::StatoApp;
+
+/// Costruisce l'elenco di cartelle in cui cercare la libreria nativa Pdfium,
+/// in ordine di priorita': variabile d'ambiente, cartella "pdfium" accanto
+/// all'eseguibile, risorse del bundle, cartella di lavoro (utile in sviluppo).
+fn cartelle_pdfium(app: &tauri::App) -> Vec<PathBuf> {
+    let mut cartelle = Vec::new();
+
+    if let Ok(env) = std::env::var("PDFIUM_LIB_PATH") {
+        cartelle.push(PathBuf::from(env));
+    }
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(dir) = exe.parent() {
+            cartelle.push(dir.join("pdfium"));
+        }
+    }
+    if let Ok(risorse) = app.path().resource_dir() {
+        cartelle.push(risorse.join("pdfium"));
+    }
+    cartelle.push(PathBuf::from("pdfium"));
+
+    cartelle
+}
+
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+    tauri::Builder::default()
+        .plugin(tauri_plugin_log::Builder::new().build())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .manage(StatoApp::default())
+        .setup(|app| {
+            // Carica Pdfium una volta sola. Se manca, l'errore verra' mostrato
+            // alla prima apertura di un PDF (messaggio chiaro nella UI).
+            let cartelle = cartelle_pdfium(app);
+            if let Err(e) = pdfa_core::pdfium::inizializza(&cartelle) {
+                log::warn!("Pdfium non caricato all'avvio: {e}");
+            }
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![
+            comandi::apri_pdf,
+            comandi::render_pagina,
+            comandi::chiudi_documento,
+        ])
+        .run(tauri::generate_context!())
+        .expect("errore nell'avvio di PDF Accessibility Studio");
+}

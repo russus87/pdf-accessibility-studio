@@ -1,0 +1,11 @@
+node_modules
+dist
+/target
+
+# Artefatti di build dei pacchetti Arch
+packaging/*.pkg.tar.zst
+packaging/src
+packaging/pkg
+
+# Libreria nativa Pdfium scaricata in sviluppo nella root del repo
+/pdfium

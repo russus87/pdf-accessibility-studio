@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=PDF Accessibility Studio
+Comment=Visore e validatore di PDF accessibili
+Exec=pdf-accessibility-studio %F
+Icon=pdf-accessibility-studio
+Terminal=false
+Categories=Office;Viewer;Accessibility;
+MimeType=application/pdf;

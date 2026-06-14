@@ -1,0 +1,45 @@
+/* Tema scuro "studio" — ispirato agli strumenti pro ma con identita' propria.
+   Palette neutra fredda con accento ambra per distinguersi dal rosso Adobe. */
+:root {
+  --sfondo: #1f232a;
+  --tela: #14171c;
+  --barra: #272c34;
+  --scheda: #2e343d;
+  --bordo: #3a414b;
+  --testo: #e8ebef;
+  --testo-soft: #9aa3af;
+  --accento: #e0922f;
+  --accento-soft: #3a3a42;
+  --errore: #ff8d8d;
+  --errore-sfondo: #3a2122;
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--sfondo);
+  color: var(--testo);
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+}
+
+#app {
+  height: 100%;
+}
+
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--bordo);
+  border-radius: 6px;
+  border: 3px solid var(--tela);
+}

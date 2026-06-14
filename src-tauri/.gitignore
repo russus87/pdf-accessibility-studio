@@ -1,0 +1,5 @@
+/target
+/gen/schemas
+# La libreria nativa Pdfium viene scaricata (script o CI), non versionata.
+/pdfium/*
+!/pdfium/.gitkeep
