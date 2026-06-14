@@ -297,6 +297,13 @@ pub async fn suggerisci_alt(
     crate::ia::alt_da_immagine(&i.modello, &chiave, png).await
 }
 
+/// Stima il contrasto colori (WCAG) di una pagina.
+#[tauri::command]
+pub fn contrasto(id: String, pagina: i32, stato: State<StatoApp>) -> Result<pdfa_core::contrasto::ContrastoPagina, String> {
+    let path = percorso(&stato, &id)?;
+    pdfa_core::contrasto::analizza_pagina(&path, pagina).map_err(|e| e.to_string())
+}
+
 // --- OCR (PDF scansionati) ---------------------------------------------------
 
 #[derive(Serialize)]

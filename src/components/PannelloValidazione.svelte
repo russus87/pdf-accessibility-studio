@@ -1,7 +1,7 @@
 <script>
   // Pannello validazione accessibilita': mostra gli esiti delle regole.
   import { schede } from "../lib/schede.svelte.js";
-  import { valida, salvaReportValidazione, ocrInfo, eseguiOcr } from "../lib/api.js";
+  import { valida, salvaReportValidazione, ocrInfo, eseguiOcr, contrasto } from "../lib/api.js";
 
   const s = $derived(schede.schedaAttiva);
   let report = $state(null);
@@ -19,6 +19,24 @@
       if (r.lingue.length) linguaOcr = r.lingue.find((l) => l === "ita") || r.lingue[0];
     }).catch(() => {});
   });
+
+  // Contrasto colori della pagina corrente.
+  let contr = $state(null);
+  let contrInCorso = $state(false);
+  const rgb = (c) => `rgb(${c[0]},${c[1]},${c[2]})`;
+
+  async function analizzaContrasto() {
+    if (!s) return;
+    contrInCorso = true;
+    contr = null;
+    try {
+      contr = await contrasto(s.id, s.pagina);
+    } catch (e) {
+      esito = `Contrasto: ${e}`;
+    } finally {
+      contrInCorso = false;
+    }
+  }
 
   async function ocrEsegui() {
     esito = null;
@@ -75,6 +93,17 @@
   {#if esito}<p class="esito">{esito}</p>{/if}
 
   {#if s}
+    <div class="ocr contr">
+      <span class="ocr-tit">Contrasto pagina {s.pagina + 1} (stima):</span>
+      <button onclick={analizzaContrasto} disabled={contrInCorso}>{contrInCorso ? "…" : "Analizza"}</button>
+      {#if contr}
+        <span class="campione" style={`background:${rgb(contr.testo)}`} title="testo"></span>
+        <span class="campione" style={`background:${rgb(contr.sfondo)}`} title="sfondo"></span>
+        <b>{contr.rapporto.toFixed(2)}:1</b>
+        <span class={contr.aa_normale ? "pass" : "fail"}>AA testo {contr.aa_normale ? "✓" : "✗"}</span>
+        <span class={contr.aa_grande ? "pass" : "fail"}>AA grande {contr.aa_grande ? "✓" : "✗"}</span>
+      {/if}
+    </div>
     <div class="ocr">
       {#if ocr.disponibile}
         <span class="ocr-tit">OCR (PDF scansionati):</span>
@@ -179,6 +208,19 @@
   }
   .ocr code {
     color: var(--accento);
+  }
+  .campione {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    border: 1px solid var(--bordo);
+    display: inline-block;
+  }
+  .pass {
+    color: #6ee08a;
+  }
+  .fail {
+    color: #ff8d8d;
   }
   .riepilogo {
     display: flex;

@@ -32,6 +32,11 @@ export function chiudiDocumento(id) {
 export function valida(id) {
   return invoke("valida", { id });
 }
+// --- Contrasto colori ---
+export function contrasto(id, pagina) {
+  return invoke("contrasto", { id, pagina });
+}
+
 // --- OCR ---
 export function ocrInfo() {
   return invoke("ocr_info");

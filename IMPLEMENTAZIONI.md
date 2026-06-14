@@ -124,8 +124,14 @@ Alt, cambio ruolo e riordino su un PDF taggato costruito al volo.
 - ✅ Pannello Validazione: selezione lingua + "Crea PDF ricercabile". Comandi
   `ocr_info` / `esegui_ocr`.
 
+## Fase 13 — Contrasto colori WCAG ✅
+
+- ✅ `core/contrasto.rs`: rapporto di contrasto esatto (luminanza WCAG) + stima
+  per pagina dei colori dominanti (istogramma) con esito AA testo normale/grande.
+  Test: nero su bianco = 21:1, colori uguali = 1:1.
+- ✅ Pannello Validazione: "Analizza" contrasto della pagina con campioni colore ed esiti.
+
 ## Idee future ⏳
 
-- ⏳ Contrasto colori WCAG (calcolo rapporto + stima per pagina)
 - ⏳ Utility PDF generali (ruota/riordina/elimina/unisci pagine, ricerca, stampa)
-- ⏳ Qualità app (drag&drop, file recenti, scorciatoie, tema chiaro)
+- ⏳ Qualità app (file recenti, scorciatoie, tema chiaro)

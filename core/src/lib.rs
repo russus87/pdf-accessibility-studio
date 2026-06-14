@@ -9,6 +9,7 @@
 //! vocale (ordine logico dei tag), confronto (testo/pixel/tag), export tag.
 
 pub mod confronto;
+pub mod contrasto;
 pub mod correzione;
 pub mod documento;
 pub mod errore;
