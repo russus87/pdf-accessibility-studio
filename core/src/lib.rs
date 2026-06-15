@@ -14,13 +14,16 @@ pub mod correzione;
 pub mod documento;
 pub mod errore;
 pub mod export;
+pub mod geometria;
 pub mod lettura;
+pub mod metadati;
 pub mod ocr;
 pub mod pagine;
 pub mod pdfium;
 pub mod ricerca;
 pub mod segnalibri;
 pub mod struttura;
+pub mod tts;
 pub mod validazione;
 
 pub use documento::{apri, render_pagina, rimuovi_dalla_cache, testo_pagine, InfoDocumento};

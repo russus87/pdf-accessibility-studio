@@ -18,10 +18,26 @@ class GestoreSchede {
   pannello = $state(null);
   /** mostra la striscia delle anteprime pagine a sinistra del visore */
   anteprime = $state(false);
+  /** evidenziazioni da disegnare sul visore: { id, pagina, rettangoli, tipo } */
+  evidenziazioni = $state(null);
 
   /** Apre/chiude un pannello laterale (toggle). */
   mostraPannello(nome) {
     this.pannello = this.pannello === nome ? null : nome;
+  }
+
+  /** Evidenzia dei rettangoli sulla pagina data della scheda attiva e ci salta.
+   *  `tipo` distingue lo stile (es. "ricerca" | "tag"). */
+  evidenzia(pagina, rettangoli, tipo = "ricerca") {
+    const s = this.schedaAttiva;
+    if (!s || pagina == null) return;
+    this.evidenziazioni = { id: s.id, pagina, rettangoli: rettangoli || [], tipo };
+    this.vaiAPagina(pagina);
+  }
+
+  /** Rimuove le evidenziazioni correnti. */
+  pulisciEvidenziazioni() {
+    this.evidenziazioni = null;
   }
 
   /** Imposta la pagina corrente della scheda attiva (usato da anteprime e tag). */

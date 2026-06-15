@@ -1,6 +1,6 @@
 // Wrapper sottile sui comandi Tauri del backend Rust.
 import { invoke } from "@tauri-apps/api/core";
-import { open, save } from "@tauri-apps/plugin-dialog";
+import { open, save, ask } from "@tauri-apps/plugin-dialog";
 import { openPath } from "@tauri-apps/plugin-opener";
 
 /** Elenco dei file aperti di recente. */
@@ -51,6 +51,61 @@ export function contrasto(id, pagina) {
 // --- Ricerca testo ---
 export function cerca(id, query) {
   return invoke("cerca", { id, query });
+}
+/** Rettangoli normalizzati (0..1) delle occorrenze in una pagina. */
+export function evidenziaRicerca(id, query, pagina) {
+  return invoke("evidenzia_ricerca", { id, query, pagina });
+}
+/** Riquadro (pagina + rettangoli) di un elemento taggato, o null. */
+export function riquadroTag(id, riferimento) {
+  return invoke("riquadro_tag", { id, riferimento });
+}
+
+// --- Metadati documento ---
+export function metadati(id) {
+  return invoke("metadati", { id });
+}
+/** Salva i metadati chiedendo se sovrascrivere l'originale o creare una copia.
+ *  Ritorna { destinazione, sovrascritto } oppure null se annullato. */
+export async function salvaMetadati(id, percorsoOriginale, campi) {
+  const sovrascrivi = await ask(
+    "Vuoi sovrascrivere il file originale?\n\nScegli No per salvare una copia (l'originale resta intatto).",
+    { title: "Salva metadati", kind: "warning" },
+  );
+  let destinazione;
+  if (sovrascrivi) {
+    destinazione = percorsoOriginale;
+  } else {
+    destinazione = await save({ defaultPath: "con-metadati.pdf", filters: [{ name: "PDF", extensions: ["pdf"] }] });
+    if (!destinazione) return null;
+  }
+  await invoke("salva_metadati", { id, ...campi, destinazione });
+  return { destinazione, sovrascritto: !!sovrascrivi };
+}
+
+// --- Sintesi vocale di riserva (espeak) ---
+export function ttsInfo() {
+  return invoke("tts_info");
+}
+/** Sintetizza il testo e ritorna un data URL WAV riproducibile. */
+export async function ttsSintesi(testo, lingua, velocita) {
+  const b64 = await invoke("tts_sintesi", { testo, lingua, velocita });
+  return `data:audio/wav;base64,${b64}`;
+}
+
+// --- Piper (voce neurale, scaricata a runtime) ---
+export function piperStato() {
+  return invoke("piper_stato");
+}
+export function piperScaricaEngine() {
+  return invoke("piper_scarica_engine");
+}
+export function piperScaricaVoce(voce) {
+  return invoke("piper_scarica_voce", { voce });
+}
+export async function piperSintesi(testo, voce, velocita) {
+  const b64 = await invoke("piper_sintesi", { testo, voce, velocita });
+  return `data:audio/wav;base64,${b64}`;
 }
 
 // --- Operazioni sulle pagine ---

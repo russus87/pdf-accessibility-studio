@@ -2,7 +2,7 @@
   // Pannello struttura/tag: naviga, modifica i ruoli, riordina l'ordine di
   // lettura ed esporta in JSON/XML. Le modifiche salvano una copia corretta.
   import { schede } from "../lib/schede.svelte.js";
-  import { alberoTag, salvaTag, correggi, riordina } from "../lib/api.js";
+  import { alberoTag, salvaTag, correggi, riordina, riquadroTag } from "../lib/api.js";
 
   const s = $derived(schede.schedaAttiva);
   let info = $state(null);
@@ -37,6 +37,22 @@
       .finally(() => !annullato && (caricamento = false));
     return () => (annullato = true);
   });
+
+  // Salta all'elemento: ne evidenzia il riquadro sul PDF (best-effort) e ci porta.
+  async function vaiAElemento(r) {
+    if (r.riferimento) {
+      try {
+        const rt = await riquadroTag(s.id, r.riferimento);
+        if (rt) {
+          schede.evidenzia(rt.pagina, rt.rettangoli, "tag");
+          return;
+        }
+      } catch (_) {
+        // ripiega sul semplice salto di pagina
+      }
+    }
+    if (r.pagina != null) schede.vaiAPagina(r.pagina);
+  }
 
   function righe(nodi, prof = 0, acc = []) {
     for (const n of nodi) {
@@ -119,11 +135,11 @@
       <p class="info">Questo PDF non ha un albero dei tag (non è taggato).</p>
 
     {:else if modo === "naviga"}
-      <p class="suggerimento">Clicca un elemento per saltare alla sua pagina.</p>
+      <p class="suggerimento">Clicca un elemento per evidenziarlo sul PDF e saltarci.</p>
       <ul>
         {#each righe(info.radice) as r}
           <li>
-            <button class="riga" style={`padding-left:${8 + r.prof * 16}px`} disabled={r.pagina == null} onclick={() => schede.vaiAPagina(r.pagina)}>
+            <button class="riga" style={`padding-left:${8 + r.prof * 16}px`} disabled={r.pagina == null && !r.riferimento} onclick={() => vaiAElemento(r)}>
               <span class="ruolo">{r.ruolo}</span>
               {#if r.alt}<span class="alt">alt: {r.alt}</span>{/if}
               {#if r.lang}<span class="lang">{r.lang}</span>{/if}

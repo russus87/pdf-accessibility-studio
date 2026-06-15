@@ -1,6 +1,6 @@
 [package]
 name = "pdf-accessibility-studio"
-version = "0.3.0"
+version = "0.4.0"
 description = "PDF Accessibility Studio - visore e validatore di PDF accessibili"
 authors = ["Antonio Russo"]
 license = "MIT"
@@ -29,7 +29,15 @@ tauri-plugin-process = "2"
 pdfa-core = { path = "../core" }
 # Le pagine renderizzate vengono inviate alla UI come PNG in base64.
 base64 = "0.22"
-# Client HTTP per le chiamate all'API Claude (suggerimento Alt con AI).
+# Client HTTP per le chiamate all'API Claude (suggerimento Alt con AI) e per il
+# download del motore vocale Piper e dei suoi modelli.
 # native-tls: usa OpenSSL su Linux, schannel su Windows, Secure Transport su mac
 # (niente cmake/nasm da configurare in CI).
 reqwest = { version = "0.12", features = ["json"] }
+# Estrazione del bundle Piper (tar.gz) scaricato a runtime.
+flate2 = "1"
+tar = "0.4"
+
+# Su Windows il bundle Piper e' uno ZIP: serve un estrattore solo li'.
+[target.'cfg(windows)'.dependencies]
+zip = { version = "2", default-features = false, features = ["deflate"] }

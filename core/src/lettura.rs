@@ -262,6 +262,172 @@ fn mcid_da_operandi(operandi: &[Object]) -> Option<i32> {
     None
 }
 
+/// Testo concatenato e pagina (0-based) di un singolo elemento taggato,
+/// identificato dal riferimento "numero_generazione". `None` se l'elemento non
+/// si trova. Usato da `geometria::riquadro_tag` per localizzarlo nel visore.
+pub fn testo_elemento(
+    percorso: &std::path::Path,
+    riferimento: &str,
+) -> Risultato<Option<(Option<i32>, String)>> {
+    let Some(target) = parse_riferimento(riferimento) else {
+        return Ok(None);
+    };
+
+    let doc = Document::load(percorso).map_err(|e| Errore::Pdfium(format!("lopdf: {e}")))?;
+
+    let mut idx_pagina: HashMap<ObjectId, i32> = HashMap::new();
+    for (num, id) in doc.get_pages() {
+        idx_pagina.insert(id, num as i32 - 1);
+    }
+    let mut testi: HashMap<(i32, i32), String> = HashMap::new();
+    for (num, id) in doc.get_pages() {
+        estrai_pagina(&doc, id, num as i32 - 1, &mut testi);
+    }
+
+    let Some(catalog) = deref(&doc, doc.trailer.get(b"Root").ok()).and_then(|o| o.as_dict().ok()) else {
+        return Ok(None);
+    };
+    let Some(str_root) =
+        deref(&doc, catalog.get(b"StructTreeRoot").ok()).and_then(|o| o.as_dict().ok())
+    else {
+        return Ok(None);
+    };
+
+    let mut trovato = None;
+    let mut visti = std::collections::HashSet::new();
+    if let Ok(k) = str_root.get(b"K") {
+        trova_elemento(&doc, k, None, None, target, &testi, &idx_pagina, &mut trovato, &mut visti, 0);
+    }
+    Ok(trovato)
+}
+
+/// Cerca l'elemento con id `target` nello structure tree, tracciando la pagina
+/// ereditata; quando lo trova ne raccoglie il testo (o l'Alt se figura).
+#[allow(clippy::too_many_arguments)]
+fn trova_elemento(
+    doc: &Document,
+    obj: &Object,
+    id_riferito: Option<ObjectId>,
+    pagina_ered: Option<i32>,
+    target: ObjectId,
+    testi: &HashMap<(i32, i32), String>,
+    idx_pagina: &HashMap<ObjectId, i32>,
+    out: &mut Option<(Option<i32>, String)>,
+    visti: &mut std::collections::HashSet<ObjectId>,
+    prof: usize,
+) {
+    if out.is_some() || prof > 80 {
+        return;
+    }
+    let id = obj.as_reference().ok().or(id_riferito);
+    if let Some(id) = id {
+        if !visti.insert(id) {
+            return;
+        }
+    }
+    let Some(ris) = deref(doc, Some(obj)) else { return };
+
+    match ris {
+        Object::Array(arr) => {
+            for o in arr {
+                trova_elemento(doc, o, None, pagina_ered, target, testi, idx_pagina, out, visti, prof + 1);
+                if out.is_some() {
+                    return;
+                }
+            }
+        }
+        Object::Dictionary(d) => {
+            if d.get(b"S").and_then(|o| o.as_name()).is_ok() {
+                let pagina = d
+                    .get(b"Pg")
+                    .ok()
+                    .and_then(|o| o.as_reference().ok())
+                    .and_then(|id| idx_pagina.get(&id).copied())
+                    .or(pagina_ered);
+                if id == Some(target) {
+                    let mut buffer = String::new();
+                    if let Ok(k) = d.get(b"K") {
+                        raccogli_testo_k(doc, k, pagina, testi, idx_pagina, &mut buffer, 0);
+                    }
+                    let mut testo = buffer.split_whitespace().collect::<Vec<_>>().join(" ");
+                    if testo.is_empty() {
+                        if let Some(alt) = stringa(doc, d, b"Alt") {
+                            testo = alt.trim().to_string();
+                        }
+                    }
+                    *out = Some((pagina, testo));
+                    return;
+                }
+                if let Ok(k) = d.get(b"K") {
+                    trova_elemento(doc, k, None, pagina, target, testi, idx_pagina, out, visti, prof + 1);
+                }
+            } else if let Ok(k) = d.get(b"K") {
+                trova_elemento(doc, k, None, pagina_ered, target, testi, idx_pagina, out, visti, prof + 1);
+            }
+        }
+        _ => {}
+    }
+}
+
+/// Accumula nel buffer il testo dei marked-content (MCID) sotto un elemento,
+/// scendendo anche nei figli-elemento.
+fn raccogli_testo_k(
+    doc: &Document,
+    k: &Object,
+    pagina: Option<i32>,
+    testi: &HashMap<(i32, i32), String>,
+    idx_pagina: &HashMap<ObjectId, i32>,
+    buffer: &mut String,
+    prof: usize,
+) {
+    if prof > 80 {
+        return;
+    }
+    let Some(ris) = deref(doc, Some(k)) else { return };
+    match ris {
+        Object::Array(arr) => {
+            for o in arr {
+                raccogli_testo_k(doc, o, pagina, testi, idx_pagina, buffer, prof + 1);
+            }
+        }
+        Object::Integer(mcid) => {
+            if let Some(t) = testi.get(&(pagina.unwrap_or(-1), *mcid as i32)) {
+                buffer.push_str(t);
+            }
+        }
+        Object::Dictionary(d) => {
+            if d.get(b"S").is_ok() {
+                let p = d
+                    .get(b"Pg")
+                    .ok()
+                    .and_then(|o| o.as_reference().ok())
+                    .and_then(|id| idx_pagina.get(&id).copied())
+                    .or(pagina);
+                if let Ok(k2) = d.get(b"K") {
+                    raccogli_testo_k(doc, k2, p, testi, idx_pagina, buffer, prof + 1);
+                }
+            } else if let Ok(mcid) = d.get(b"MCID").and_then(|o| o.as_i64()) {
+                let p = d
+                    .get(b"Pg")
+                    .ok()
+                    .and_then(|o| o.as_reference().ok())
+                    .and_then(|id| idx_pagina.get(&id).copied())
+                    .or(pagina);
+                if let Some(t) = testi.get(&(p.unwrap_or(-1), mcid as i32)) {
+                    buffer.push_str(t);
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+/// Converte un riferimento "numero_generazione" in un ObjectId.
+fn parse_riferimento(s: &str) -> Option<ObjectId> {
+    let (n, g) = s.split_once('_')?;
+    Some((n.parse().ok()?, g.parse().ok()?))
+}
+
 // --- Helper condivisi (analoghi a struttura.rs) ------------------------------
 
 fn deref<'a>(doc: &'a Document, obj: Option<&'a Object>) -> Option<&'a Object> {

@@ -3,10 +3,26 @@
   // e, dove il PDF e' taggato, intercala il testo alternativo delle immagini.
   // Evidenzia la parola in lettura (eventi onboundary) e fa seguire il visore.
   import { schede } from "../lib/schede.svelte.js";
-  import { testoDocumento, alberoTag, blocchiLettura } from "../lib/api.js";
+  import {
+    testoDocumento, alberoTag, blocchiLettura,
+    ttsInfo, ttsSintesi,
+    piperStato, piperScaricaEngine, piperScaricaVoce, piperSintesi,
+  } from "../lib/api.js";
 
   const s = $derived(schede.schedaAttiva);
   const sintesi = typeof window !== "undefined" ? window.speechSynthesis : null;
+  // Elemento audio per i motori backend (espeak / piper, che producono WAV).
+  const audio = typeof Audio !== "undefined" ? new Audio() : null;
+
+  // Motore di lettura: "sistema" (voci del webview), "espeak" o "piper" (backend).
+  let motore = $state(null);
+  let motoreUtente = $state(false); // true se scelto esplicitamente dall'utente
+  let espeakDisponibile = $state(false);
+  let espeakVoci = $state([]);
+  // Piper (voce neurale, scaricata a runtime).
+  let piper = $state({ supportato: false, engine_pronto: false, voci: [] });
+  let piperAzione = $state(null); // messaggio durante i download
+  const piperVociInstallate = $derived(piper.voci.filter((v) => v.installata));
 
   // Ogni blocco: { testo, tipo: "testo"|"immagine", pagina }.
   let blocchi = $state([]);
@@ -27,13 +43,87 @@
     return (testo.match(/[^.!?\n]+[.!?]*/g) || []).map((t) => t.trim()).filter(Boolean);
   }
 
-  function caricaVoci() {
-    if (!sintesi) return;
-    voci = sintesi.getVoices();
-    if (!voceScelta && voci.length) {
+  // Motori attualmente utilizzabili, in ordine di preferenza per l'auto-scelta.
+  function motoriDisponibili() {
+    const out = [];
+    if (voci.length) out.push("sistema");
+    if (espeakDisponibile) out.push("espeak");
+    if (piper.engine_pronto && piperVociInstallate.length) out.push("piper");
+    return out;
+  }
+
+  // Voce predefinita per un motore (preferendo l'italiano).
+  function defaultVoce(m) {
+    if (m === "sistema") {
       const it = voci.find((v) => v.lang.toLowerCase().startsWith("it"));
-      voceScelta = (it || voci[0]).name;
+      return (it || voci[0])?.name || "";
     }
+    if (m === "espeak") {
+      const it = espeakVoci.find((v) => v.codice.toLowerCase().startsWith("it"));
+      return (it || espeakVoci[0] || { codice: "it" }).codice;
+    }
+    if (m === "piper") {
+      const it = piperVociInstallate.find((v) => v.lingua === "it");
+      return (it || piperVociInstallate[0])?.id || "";
+    }
+    return "";
+  }
+
+  // Ricalcola i motori disponibili; sceglie un default solo se l'utente non ha deciso.
+  function aggiornaMotore() {
+    voci = sintesi ? sintesi.getVoices() : [];
+    const disp = motoriDisponibili();
+    if (motoreUtente && disp.includes(motore)) {
+      if (!voceScelta) voceScelta = defaultVoce(motore);
+      return;
+    }
+    const scelto = disp[0] || null;
+    motore = scelto;
+    voceScelta = scelto ? defaultVoce(scelto) : "";
+  }
+
+  // Cambio di motore esplicito dall'utente.
+  function cambiaMotore(m) {
+    motoreUtente = true;
+    fermaInterno();
+    motore = m;
+    voceScelta = defaultVoce(m);
+  }
+
+  // (Ri)legge lo stato di Piper dal backend.
+  function ricaricaPiper() {
+    return piperStato()
+      .then((st) => {
+        piper = st;
+        aggiornaMotore();
+      })
+      .catch(() => {});
+  }
+
+  // Scarica l'engine Piper (una volta), mostrando un messaggio di stato.
+  async function scaricaEngine() {
+    piperAzione = "Scaricamento motore neurale (~26 MB)…";
+    try {
+      await piperScaricaEngine();
+      await ricaricaPiper();
+    } catch (e) {
+      piperAzione = `Errore: ${e}`;
+      return;
+    }
+    piperAzione = null;
+  }
+
+  // Scarica una voce neurale dal catalogo.
+  async function scaricaVoce(v) {
+    piperAzione = `Scaricamento voce ${v.nome} (~${v.mb} MB)…`;
+    try {
+      await piperScaricaVoce(v.id);
+      await ricaricaPiper();
+    } catch (e) {
+      piperAzione = `Errore: ${e}`;
+      return;
+    }
+    piperAzione = null;
   }
 
   // Costruisce i blocchi di lettura: testo per pagina + Alt delle figure.
@@ -99,15 +189,26 @@
     };
   });
 
+  // Carica le voci di sistema (asincrone) e interroga il backend (espeak + Piper).
   $effect(() => {
-    if (!sintesi) return;
-    caricaVoci();
-    sintesi.addEventListener("voiceschanged", caricaVoci);
-    return () => sintesi.removeEventListener("voiceschanged", caricaVoci);
+    ttsInfo()
+      .then((info) => {
+        espeakDisponibile = info.disponibile;
+        espeakVoci = info.voci || [];
+        aggiornaMotore();
+      })
+      .catch(() => aggiornaMotore());
+    ricaricaPiper();
+
+    if (sintesi) {
+      aggiornaMotore();
+      sintesi.addEventListener("voiceschanged", aggiornaMotore);
+      return () => sintesi.removeEventListener("voiceschanged", aggiornaMotore);
+    }
   });
 
   function leggiDa(i) {
-    if (!sintesi || i >= blocchi.length) {
+    if (i >= blocchi.length) {
       inLettura = false;
       return;
     }
@@ -117,6 +218,15 @@
     if (seguiPagina) schede.vaiAPagina(b.pagina);
 
     const testo = b.tipo === "immagine" ? `Immagine. ${b.testo}` : b.testo;
+    if (motore === "espeak" || motore === "piper") {
+      leggiBackend(i, testo);
+    } else {
+      leggiSistema(i, testo, b.tipo);
+    }
+  }
+
+  // Lettura con le voci di sistema (SpeechSynthesis), con evidenziazione parola.
+  function leggiSistema(i, testo, tipo) {
     const u = new SpeechSynthesisUtterance(testo);
     const v = voci.find((x) => x.name === voceScelta);
     if (v) {
@@ -124,7 +234,7 @@
       u.lang = v.lang;
     }
     u.rate = velocita;
-    const scarto = b.tipo === "immagine" ? "Immagine. ".length : 0;
+    const scarto = tipo === "immagine" ? "Immagine. ".length : 0;
     u.onboundary = (e) => {
       if (e.name === "word") parolaIndice = Math.max(0, e.charIndex - scarto);
     };
@@ -135,29 +245,63 @@
     sintesi.speak(u);
   }
 
-  function avvia() {
-    if (!sintesi || !blocchi.length) return;
-    if (inPausa) {
-      sintesi.resume();
-      inPausa = false;
-      inLettura = true;
+  // Lettura con un motore backend (espeak o piper): sintetizza un WAV e lo
+  // riproduce. Niente evidenziazione per-parola (l'audio non espone i confini).
+  async function leggiBackend(i, testo) {
+    if (!audio) {
+      inLettura = false;
       return;
     }
-    sintesi.cancel();
+    try {
+      const url =
+        motore === "piper"
+          ? await piperSintesi(testo, voceScelta, velocita)
+          : await ttsSintesi(testo, voceScelta || "it", velocita);
+      // Una richiesta piu' recente potrebbe aver cambiato blocco nel frattempo.
+      if (!inLettura || inPausa || indice !== i) return;
+      audio.src = url;
+      audio.onended = () => {
+        if (inLettura && !inPausa) leggiDa(i + 1);
+      };
+      audio.onerror = () => (inLettura = false);
+      await audio.play();
+    } catch (e) {
+      errore = String(e);
+      inLettura = false;
+    }
+  }
+
+  function avvia() {
+    if (!blocchi.length || !motore) return;
+    if (inPausa) {
+      inPausa = false;
+      inLettura = true;
+      if (motore === "espeak" || motore === "piper") {
+        if (audio && audio.src && !audio.ended) audio.play().catch(() => {});
+        else leggiDa(indice);
+      } else {
+        sintesi.resume();
+      }
+      return;
+    }
+    fermaInterno();
     inLettura = true;
     inPausa = false;
     leggiDa(indice < blocchi.length ? indice : 0);
   }
 
   function pausa() {
-    if (!sintesi) return;
-    sintesi.pause();
     inPausa = true;
+    if (motore === "espeak" || motore === "piper") audio?.pause();
+    else sintesi?.pause();
   }
 
   function fermaInterno() {
-    if (!sintesi) return;
-    sintesi.cancel();
+    sintesi?.cancel();
+    if (audio) {
+      audio.pause();
+      audio.removeAttribute("src");
+    }
     inLettura = false;
     inPausa = false;
   }
@@ -194,7 +338,7 @@
     <h3>Lettura vocale</h3>
     <div class="controlli">
       {#if !inLettura || inPausa}
-        <button onclick={avvia} disabled={!blocchi.length}>▶ {inPausa ? "Riprendi" : "Leggi"}</button>
+        <button onclick={avvia} disabled={!blocchi.length || !motore}>▶ {inPausa ? "Riprendi" : "Leggi"}</button>
       {:else}
         <button onclick={pausa}>⏸ Pausa</button>
       {/if}
@@ -202,10 +346,29 @@
     </div>
     <div class="opzioni">
       <label>
-        Voce
-        <select bind:value={voceScelta}>
-          {#each voci as v}<option value={v.name}>{v.name} ({v.lang})</option>{/each}
+        Motore
+        <select value={motore || ""} onchange={(e) => cambiaMotore(e.target.value)} disabled={!motore}>
+          {#if voci.length}<option value="sistema">Voci di sistema</option>{/if}
+          {#if espeakDisponibile}<option value="espeak">espeak (sintetico)</option>{/if}
+          {#if piper.engine_pronto && piperVociInstallate.length}<option value="piper">Piper (neurale)</option>{/if}
+          {#if !motore}<option value="">nessuno</option>{/if}
         </select>
+      </label>
+      <label>
+        Voce
+        {#if motore === "piper"}
+          <select bind:value={voceScelta}>
+            {#each piperVociInstallate as v}<option value={v.id}>{v.nome} ({v.lingua}, {v.qualita})</option>{/each}
+          </select>
+        {:else if motore === "espeak"}
+          <select bind:value={voceScelta}>
+            {#each espeakVoci as v}<option value={v.codice}>{v.nome} ({v.codice})</option>{/each}
+          </select>
+        {:else}
+          <select bind:value={voceScelta}>
+            {#each voci as v}<option value={v.name}>{v.name} ({v.lang})</option>{/each}
+          </select>
+        {/if}
       </label>
       <label>
         Velocità {velocita.toFixed(1)}×
@@ -217,14 +380,42 @@
       </label>
     </div>
     {#if blocchi.length}
-      <div class="modo">Ordine: <b>{ordineLogico ? "logico (tag)" : "pagina"}</b></div>
+      <div class="modo">
+        Ordine: <b>{ordineLogico ? "logico (tag)" : "pagina"}</b>
+        {#if motore}· Motore: <b>{motore === "piper" ? "Piper" : motore === "espeak" ? "espeak" : "sistema"}</b>{/if}
+      </div>
     {/if}
   </header>
 
-  {#if !sintesi}
-    <p class="err">La sintesi vocale non è disponibile in questo webview.</p>
-  {:else if voci.length === 0}
-    <p class="info">Nessuna voce di sistema trovata. Su Linux installa <code>speech-dispatcher</code> e una voce (es. <code>espeak-ng</code>).</p>
+  {#if motore === "espeak"}
+    <p class="info">Voce sintetica <code>espeak-ng</code> (senza evidenziazione per parola). Per una voce naturale scarica <b>Piper</b> qui sotto.</p>
+  {:else if !motore}
+    <p class="err">Nessuna voce disponibile. Scarica <b>Piper</b> qui sotto, oppure installa <code>espeak-ng</code> / <code>speech-dispatcher</code>.</p>
+  {/if}
+
+  {#if piper.supportato}
+    <details class="piper">
+      <summary>Voce neurale (Piper) — qualità naturale, scaricabile</summary>
+      {#if piperAzione}<p class="azione">{piperAzione}</p>{/if}
+      {#if !piper.engine_pronto}
+        <p class="hint">Scarica una volta il motore neurale, poi una o più voci.</p>
+        <button class="mini" onclick={scaricaEngine} disabled={!!piperAzione}>Scarica motore neurale (~26 MB)</button>
+      {:else}
+        <p class="hint">Motore pronto. Scarica le voci che vuoi usare:</p>
+      {/if}
+      <ul class="voci-piper">
+        {#each piper.voci as v}
+          <li>
+            <span>{v.nome} <small>({v.lingua}, {v.qualita}, ~{v.mb} MB)</small></span>
+            {#if v.installata}
+              <span class="ok">✓ installata</span>
+            {:else}
+              <button class="mini" onclick={() => scaricaVoce(v)} disabled={!piper.engine_pronto || !!piperAzione}>Scarica</button>
+            {/if}
+          </li>
+        {/each}
+      </ul>
+    </details>
   {/if}
 
   {#if caricamento}
@@ -362,6 +553,63 @@
     font-size: 11px;
     color: var(--testo-soft);
     margin-top: 6px;
+  }
+  details.piper {
+    margin: 8px 14px;
+    border: 1px solid var(--bordo);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+  details.piper summary {
+    cursor: pointer;
+    color: var(--testo);
+    font-weight: 600;
+  }
+  details.piper .hint,
+  details.piper .azione {
+    color: var(--testo-soft);
+    margin: 8px 0;
+  }
+  details.piper .azione {
+    color: #e7c98a;
+  }
+  .voci-piper {
+    list-style: none;
+    margin: 6px 0 0;
+    padding: 0;
+    font-family: inherit;
+    font-size: 12px;
+  }
+  .voci-piper li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 5px 0;
+    border-top: 1px solid var(--bordo);
+  }
+  .voci-piper small {
+    color: var(--testo-soft);
+  }
+  .voci-piper .ok {
+    color: #7ad08f;
+  }
+  button.mini {
+    background: var(--scheda);
+    color: var(--testo);
+    border: 1px solid var(--bordo);
+    border-radius: 6px;
+    padding: 4px 10px;
+    cursor: pointer;
+    font-size: 12px;
+  }
+  button.mini:hover:not(:disabled) {
+    border-color: var(--accento);
+  }
+  button.mini:disabled {
+    opacity: 0.5;
+    cursor: default;
   }
   mark {
     background: #fff3c4;

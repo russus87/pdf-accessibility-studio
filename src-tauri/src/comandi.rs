@@ -312,6 +312,101 @@ pub fn cerca(id: String, query: String, stato: State<StatoApp>) -> Result<Vec<pd
     pdfa_core::ricerca::cerca(&path, &query).map_err(|e| e.to_string())
 }
 
+/// Rettangoli (normalizzati) delle occorrenze di `query` in una pagina, per
+/// evidenziarle nel visore.
+#[tauri::command]
+pub fn evidenzia_ricerca(
+    id: String,
+    query: String,
+    pagina: i32,
+    stato: State<StatoApp>,
+) -> Result<Vec<pdfa_core::geometria::Rett>, String> {
+    let path = percorso(&stato, &id)?;
+    pdfa_core::geometria::rettangoli_ricerca(&path, pagina, &query).map_err(|e| e.to_string())
+}
+
+/// Riquadro (pagina + rettangoli) di un elemento taggato, per evidenziarlo e
+/// portarcisi nel visore.
+#[tauri::command]
+pub fn riquadro_tag(
+    id: String,
+    riferimento: String,
+    stato: State<StatoApp>,
+) -> Result<Option<pdfa_core::geometria::RiquadroTag>, String> {
+    let path = percorso(&stato, &id)?;
+    pdfa_core::geometria::riquadro_tag(&path, &riferimento).map_err(|e| e.to_string())
+}
+
+// --- Metadati documento -------------------------------------------------------
+
+/// Legge i metadati del documento (Info + Lang + DisplayDocTitle).
+#[tauri::command]
+pub fn metadati(id: String, stato: State<StatoApp>) -> Result<pdfa_core::metadati::Metadati, String> {
+    let path = percorso(&stato, &id)?;
+    pdfa_core::metadati::leggi(&path).map_err(|e| e.to_string())
+}
+
+/// Scrive i metadati e salva in `destinazione` (copia, oppure l'originale per
+/// sovrascrivere). Se sovrascrive, invalida la cache di rendering.
+#[tauri::command]
+#[allow(clippy::too_many_arguments)]
+pub fn salva_metadati(
+    id: String,
+    titolo: String,
+    autore: String,
+    soggetto: String,
+    parole_chiave: String,
+    creatore: String,
+    produttore: String,
+    lang: String,
+    display_doc_title: bool,
+    destinazione: String,
+    stato: State<StatoApp>,
+) -> Result<(), String> {
+    let path = percorso(&stato, &id)?;
+    let input = pdfa_core::metadati::MetadatiInput {
+        titolo,
+        autore,
+        soggetto,
+        parole_chiave,
+        creatore,
+        produttore,
+        lang,
+        display_doc_title,
+    };
+    let dest = PathBuf::from(&destinazione);
+    pdfa_core::metadati::scrivi(&path, &dest, &input).map_err(|e| e.to_string())?;
+    if dest == path {
+        pdfa_core::rimuovi_dalla_cache(&path);
+    }
+    Ok(())
+}
+
+// --- Sintesi vocale di riserva (espeak-ng) -----------------------------------
+
+/// Stato del motore TTS di riserva: disponibilita' e lingue.
+#[derive(Serialize)]
+pub struct InfoTts {
+    pub disponibile: bool,
+    pub voci: Vec<pdfa_core::tts::VoceTts>,
+}
+
+/// Indica se espeak e' disponibile e quali lingue offre.
+#[tauri::command]
+pub fn tts_info() -> InfoTts {
+    InfoTts {
+        disponibile: pdfa_core::tts::disponibile(),
+        voci: pdfa_core::tts::voci(),
+    }
+}
+
+/// Sintetizza il testo con espeak e ritorna un WAV codificato in base64.
+#[tauri::command]
+pub fn tts_sintesi(testo: String, lingua: String, velocita: f32) -> Result<String, String> {
+    let wav = pdfa_core::tts::sintetizza(&testo, &lingua, velocita).map_err(|e| e.to_string())?;
+    Ok(STANDARD.encode(wav))
+}
+
 // --- Operazioni sulle pagine -------------------------------------------------
 
 #[tauri::command]

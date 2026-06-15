@@ -2,25 +2,41 @@
   // Ricerca testuale: trova la query nel documento e mostra le pagine con
   // un estratto; cliccando si salta alla pagina.
   import { schede } from "../lib/schede.svelte.js";
-  import { cerca } from "../lib/api.js";
+  import { cerca, evidenziaRicerca } from "../lib/api.js";
 
   const s = $derived(schede.schedaAttiva);
   let query = $state("");
   let risultati = $state(null);
   let inCorso = $state(false);
   let errore = $state(null);
+  let pagAttiva = $state(null);
 
   async function esegui() {
     if (!s || !query.trim()) return;
     inCorso = true;
     errore = null;
     risultati = null;
+    pagAttiva = null;
+    schede.pulisciEvidenziazioni();
     try {
       risultati = await cerca(s.id, query);
+      // Evidenzia subito il primo risultato.
+      if (risultati.length) await vaiA(risultati[0].pagina);
     } catch (e) {
       errore = String(e);
     } finally {
       inCorso = false;
+    }
+  }
+
+  // Salta alla pagina ed evidenzia le occorrenze del termine cercato.
+  async function vaiA(pagina) {
+    pagAttiva = pagina;
+    try {
+      const rett = await evidenziaRicerca(s.id, query, pagina);
+      schede.evidenzia(pagina, rett, "ricerca");
+    } catch (_) {
+      schede.vaiAPagina(pagina);
     }
   }
 
@@ -48,7 +64,7 @@
       <ul>
         {#each risultati as r}
           <li>
-            <button onclick={() => schede.vaiAPagina(r.pagina)}>
+            <button class:attiva={pagAttiva === r.pagina} onclick={() => vaiA(r.pagina)}>
               <span class="pag">Pagina {r.pagina + 1} · {r.conteggio}×</span>
               <span class="ctx">{r.contesto}</span>
             </button>
@@ -124,6 +140,10 @@
   }
   li button:hover {
     background: var(--scheda);
+  }
+  li button.attiva {
+    background: var(--scheda);
+    box-shadow: inset 3px 0 0 var(--accento);
   }
   .pag {
     color: var(--accento);

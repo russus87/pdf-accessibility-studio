@@ -16,6 +16,21 @@
   let caricamento = $state(false);
   let erroreRender = $state(null);
 
+  // Evidenziazioni (ricerca/tag) valide solo per la scheda e pagina correnti.
+  const evid = $derived(
+    schede.evidenziazioni && s && schede.evidenziazioni.id === s.id && schede.evidenziazioni.pagina === s.pagina
+      ? schede.evidenziazioni
+      : null,
+  );
+
+  // Quando compaiono dei riquadri sulla pagina corrente, porta il primo in vista.
+  let overlayEl = $state(null);
+  $effect(() => {
+    if (src && evid && evid.rettangoli.length && overlayEl) {
+      overlayEl.firstElementChild?.scrollIntoView({ block: "center", inline: "center", behavior: "smooth" });
+    }
+  });
+
   // Ad ogni cambio di scheda/pagina/zoom richiede il rendering. La closure di
   // cleanup annulla i risultati di richieste ormai superate (evita flicker).
   $effect(() => {
@@ -69,7 +84,19 @@
       <code>{erroreRender}</code>
     </div>
   {:else if src}
-    <img class="pagina" {src} alt={`Pagina ${s.pagina + 1} di ${s.nome}`} />
+    <div class="pagina-wrap">
+      <img class="pagina" {src} alt={`Pagina ${s.pagina + 1} di ${s.nome}`} />
+      {#if evid}
+        <div class="overlay" class:tag={evid.tipo === "tag"} bind:this={overlayEl}>
+          {#each evid.rettangoli as r}
+            <div
+              class="box"
+              style={`left:${r.x0 * 100}%;top:${r.y0 * 100}%;width:${(r.x1 - r.x0) * 100}%;height:${(r.y1 - r.y0) * 100}%`}
+            ></div>
+          {/each}
+        </div>
+      {/if}
+    </div>
     {#if caricamento}<div class="spinner">…</div>{/if}
   {:else}
     <div class="spinner grande">Rendering…</div>
@@ -87,11 +114,33 @@
     padding: 24px;
     background: var(--tela);
   }
+  .pagina-wrap {
+    position: relative;
+    display: inline-block;
+    line-height: 0;
+  }
   .pagina {
     max-width: none;
     box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
     background: #fff;
     border-radius: 2px;
+    display: block;
+  }
+  .overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+  .box {
+    position: absolute;
+    background: rgba(255, 213, 0, 0.32);
+    border: 1.5px solid rgba(255, 193, 7, 0.95);
+    border-radius: 2px;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.15);
+  }
+  .overlay.tag .box {
+    background: rgba(64, 156, 255, 0.22);
+    border-color: rgba(64, 156, 255, 0.95);
   }
   .vuoto,
   .errore-render {

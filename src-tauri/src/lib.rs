@@ -3,6 +3,7 @@
 
 mod comandi;
 mod ia;
+mod piper;
 mod stato;
 
 use std::path::PathBuf;
@@ -78,6 +79,16 @@ pub fn run() {
             comandi::esegui_ocr,
             comandi::contrasto,
             comandi::cerca,
+            comandi::evidenzia_ricerca,
+            comandi::riquadro_tag,
+            comandi::metadati,
+            comandi::salva_metadati,
+            comandi::tts_info,
+            comandi::tts_sintesi,
+            piper::piper_stato,
+            piper::piper_scarica_engine,
+            piper::piper_scarica_voce,
+            piper::piper_sintesi,
             comandi::ruota_pagine,
             comandi::elimina_pagine,
             comandi::estrai_pagine,

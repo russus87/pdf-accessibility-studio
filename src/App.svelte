@@ -54,6 +54,7 @@
   });
   import BarraSchede from "./components/BarraSchede.svelte";
   import BarraStrumenti from "./components/BarraStrumenti.svelte";
+  import RailStrumenti from "./components/RailStrumenti.svelte";
   import Visore from "./components/Visore.svelte";
   import Anteprime from "./components/Anteprime.svelte";
   import PannelloValidazione from "./components/PannelloValidazione.svelte";
@@ -63,10 +64,11 @@
   import PannelloCorrezione from "./components/PannelloCorrezione.svelte";
   import PannelloPagine from "./components/PannelloPagine.svelte";
   import PannelloRicerca from "./components/PannelloRicerca.svelte";
+  import PannelloMetadati from "./components/PannelloMetadati.svelte";
   import Confronto from "./components/Confronto.svelte";
 
   const lateralePannello = $derived(
-    ["valida", "indice", "tag", "leggi", "correggi", "pagine", "cerca"].includes(schede.pannello) ? schede.pannello : null,
+    ["valida", "indice", "tag", "leggi", "correggi", "pagine", "cerca", "metadati"].includes(schede.pannello) ? schede.pannello : null,
   );
 </script>
 
@@ -81,27 +83,32 @@
     </div>
   {/if}
 
-  {#if schede.pannello === "confronta"}
-    <Confronto />
-  {:else}
-    <div class="area">
-      {#if schede.anteprime && schede.schedaAttiva}
-        <Anteprime />
-      {/if}
-      <Visore />
-      {#if lateralePannello}
-        <aside class="laterale">
-          {#if lateralePannello === "valida"}<PannelloValidazione />
-          {:else if lateralePannello === "indice"}<PannelloSegnalibri />
-          {:else if lateralePannello === "tag"}<PannelloTag />
-          {:else if lateralePannello === "leggi"}<LettoreVocale />
-          {:else if lateralePannello === "correggi"}<PannelloCorrezione />
-          {:else if lateralePannello === "pagine"}<PannelloPagine />
-          {:else if lateralePannello === "cerca"}<PannelloRicerca />{/if}
-        </aside>
-      {/if}
-    </div>
-  {/if}
+  <div class="corpo">
+    <RailStrumenti />
+
+    {#if schede.pannello === "confronta"}
+      <Confronto />
+    {:else}
+      <div class="area">
+        {#if schede.anteprime && schede.schedaAttiva}
+          <Anteprime />
+        {/if}
+        <Visore />
+        {#if lateralePannello}
+          <aside class="laterale">
+            {#if lateralePannello === "valida"}<PannelloValidazione />
+            {:else if lateralePannello === "indice"}<PannelloSegnalibri />
+            {:else if lateralePannello === "tag"}<PannelloTag />
+            {:else if lateralePannello === "leggi"}<LettoreVocale />
+            {:else if lateralePannello === "correggi"}<PannelloCorrezione />
+            {:else if lateralePannello === "pagine"}<PannelloPagine />
+            {:else if lateralePannello === "cerca"}<PannelloRicerca />
+            {:else if lateralePannello === "metadati"}<PannelloMetadati />{/if}
+          </aside>
+        {/if}
+      </div>
+    {/if}
+  </div>
 </main>
 
 <style>
@@ -111,9 +118,16 @@
     height: 100vh;
     overflow: hidden;
   }
+  .corpo {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+    overflow: hidden;
+  }
   .area {
     flex: 1;
     display: flex;
+    min-width: 0;
     overflow: hidden;
   }
   .laterale {

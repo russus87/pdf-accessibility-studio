@@ -42,27 +42,6 @@
 
   <span class="spazio"></span>
 
-  <button class="strumento" class:on={schede.anteprime} disabled={!s}
-    onclick={() => (schede.anteprime = !schede.anteprime)}>Anteprime</button>
-  <button class="strumento" class:on={schede.pannello === "pagine"} disabled={!s}
-    onclick={() => schede.mostraPannello("pagine")}>Pagine</button>
-  <button class="strumento" class:on={schede.pannello === "valida"} disabled={!s}
-    onclick={() => schede.mostraPannello("valida")}>Valida</button>
-  <button class="strumento" class:on={schede.pannello === "cerca"} disabled={!s}
-    onclick={() => schede.mostraPannello("cerca")}>Cerca</button>
-  <button class="strumento" class:on={schede.pannello === "indice"} disabled={!s}
-    onclick={() => schede.mostraPannello("indice")}>Indice</button>
-  <button class="strumento" class:on={schede.pannello === "tag"} disabled={!s}
-    onclick={() => schede.mostraPannello("tag")}>Tag</button>
-  <button class="strumento" class:on={schede.pannello === "leggi"} disabled={!s}
-    onclick={() => schede.mostraPannello("leggi")}>Leggi</button>
-  <button class="strumento" class:on={schede.pannello === "correggi"} disabled={!s}
-    onclick={() => schede.mostraPannello("correggi")}>Correggi</button>
-  <button class="strumento" class:on={schede.pannello === "confronta"} disabled={schede.schede.length < 2}
-    onclick={() => schede.mostraPannello("confronta")}>Confronta</button>
-
-  <span class="sep"></span>
-
   <button class="strumento" disabled={!s} title="Apri nel programma di sistema (per stampare)"
     onclick={() => apriEsterno(s.percorso)}>Stampa/Esterno</button>
   <button class="strumento" title="Cambia tema" onclick={cambiaTema}>{tema === "scuro" ? "☀" : "🌙"}</button>
@@ -107,10 +86,5 @@
   }
   .spazio {
     flex: 1;
-  }
-  .toolbar button.strumento.on {
-    background: var(--accento);
-    color: #fff;
-    border-color: var(--accento);
   }
 </style>
