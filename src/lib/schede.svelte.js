@@ -14,10 +14,12 @@ class GestoreSchede {
   attiva = $state(null);
   /** messaggio di errore eventuale */
   errore = $state(null);
-  /** pannello attivo: "valida" | "tag" | "leggi" | "confronta" | "correggi" | null */
+  /** pannello attivo: "valida" | "tag" | "autotag" | "leggi" | "confronta" | "correggi" | null */
   pannello = $state(null);
   /** mostra la striscia delle anteprime pagine a sinistra del visore */
   anteprime = $state(false);
+  /** mostra il righello metrico e lo strumento di misura sul visore */
+  misura = $state(false);
   /** evidenziazioni da disegnare sul visore: { id, pagina, rettangoli, tipo } */
   evidenziazioni = $state(null);
 

@@ -34,6 +34,11 @@ export async function renderPagina(id, indice, larghezza) {
   return `data:image/png;base64,${b64}`;
 }
 
+/** Dimensioni della pagina (0-based) in punti PDF: { larghezza, altezza }. */
+export function dimensioniPagina(id, indice) {
+  return invoke("dimensioni_pagina", { id, indice });
+}
+
 /** Chiude un documento nel backend. */
 export function chiudiDocumento(id) {
   return invoke("chiudi_documento", { id });
@@ -223,6 +228,18 @@ export async function salvaTag(id, formato) {
   return true;
 }
 
+/** Esporta in DocTags (serializzazione DocLang) la struttura di un PDF GIA'
+ *  taggato, ricavandola dal suo StructTree. Ritorna false se annullato. */
+export async function salvaDoclang(id) {
+  const destinazione = await save({
+    defaultPath: "documento.doctags.xml",
+    filters: [{ name: "DocTags (DocLang)", extensions: ["xml"] }],
+  });
+  if (!destinazione) return false;
+  await invoke("salva_tag", { id, formato: "doclang", destinazione });
+  return true;
+}
+
 // --- Correzione assistita ---
 /** Chiede dove salvare la copia corretta e applica le correzioni.
  *  Ritorna il percorso salvato, oppure null se annullato. */
@@ -268,6 +285,51 @@ export function impostaAi(chiave, modello) {
 }
 export function suggerisciAlt(id, pagina) {
   return invoke("suggerisci_alt", { id, pagina });
+}
+
+// --- Auto-tagging AI (Docling, solo PDF non taggati) ---
+/** Stato del ponte Docling: { python_disponibile, python_bin, docling_installato, script_pronto }. */
+export function doclingStato() {
+  return invoke("docling_stato");
+}
+/** Deposita/aggiorna lo script-ponte Python nella cartella dati dell'app. */
+export function doclingPrepara() {
+  return invoke("docling_prepara");
+}
+/** Analizza con Docling la struttura di un PDF *non taggato* e ritorna le
+ *  proposte di tag: { lingua, blocchi_totali, proposte, albero, doclang, doclang_fmt }.
+ *  Va in errore se il PDF e' gia' taggato o se Python/Docling non sono disponibili. */
+export function analizzaStrutturaAi(id) {
+  return invoke("analizza_struttura_ai", { id });
+}
+/** Genera un PDF *realmente taggato* dalle proposte: overlay di testo invisibile
+ *  taggato + marked content sopra le pagine originali, font incorporato, albero
+ *  dei tag completo. Opzioni: { doclang, pdfa3 }. Chiede dove salvare; ritorna
+ *  { dest, n } o null se annullato. Il marked content c'è, ma rifinisci comunque
+ *  ruoli/Alt nei pannelli Tag/Correggi e verifica con Valida (PDF/A-3 best effort). */
+export async function generaPdfAccessibile(id, proposte, lang, titolo, opts = {}) {
+  const destinazione = await save({
+    defaultPath: opts.pdfa3 ? "accessibile-pdfa3.pdf" : "accessibile.pdf",
+    filters: [{ name: "PDF", extensions: ["pdf"] }],
+  });
+  if (!destinazione) return null;
+  const n = await invoke("genera_pdf_accessibile", {
+    id,
+    proposte: proposte.map((p) => ({
+      ruolo: p.ruolo,
+      pagina: p.pagina,
+      testo: p.testo,
+      bbox: p.bbox ?? null,
+      // Campo di struct annidata: Tauri NON converte camelCase qui, usa snake_case.
+      coord_basso: p.coord_basso ?? true,
+    })),
+    lang: lang || null,
+    titolo: titolo || null,
+    doclang: opts.doclang || null,
+    pdfa3: !!opts.pdfa3,
+    destinazione,
+  });
+  return { dest: destinazione, n };
 }
 
 /** Riordina gli elementi di primo livello (ordine di lettura) e salva una copia. */

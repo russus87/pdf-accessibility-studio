@@ -3468,7 +3468,7 @@ dependencies = [
 
 [[package]]
 name = "pdf-accessibility-studio"
-version = "0.4.0"
+version = "0.5.1"
 dependencies = [
  "base64 0.22.1",
  "flate2",
@@ -3502,6 +3502,7 @@ dependencies = [
  "similar",
  "tempfile",
  "thiserror 2.0.18",
+ "ttf-parser",
 ]
 
 [[package]]

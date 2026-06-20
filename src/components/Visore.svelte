@@ -1,9 +1,34 @@
 <script>
   // Visore della pagina corrente: chiede al backend il rendering PNG e lo mostra.
   import { schede } from "../lib/schede.svelte.js";
-  import { renderPagina, fileRecenti } from "../lib/api.js";
+  import { renderPagina, fileRecenti, dimensioniPagina } from "../lib/api.js";
+  import StrumentoMisura from "./StrumentoMisura.svelte";
 
   const s = $derived(schede.schedaAttiva);
+
+  // Strumento di misura: riferimento all'immagine (per i pixel reali) e
+  // dimensioni della pagina in punti, richieste al backend quando è attivo.
+  let imgEl = $state(null);
+  let dimPagina = $state(null);
+  $effect(() => {
+    if (!s || !schede.misura) {
+      dimPagina = null;
+      return;
+    }
+    const id = s.id;
+    const pagina = s.pagina;
+    let annullato = false;
+    dimensioniPagina(id, pagina)
+      .then((d) => {
+        if (!annullato) dimPagina = d;
+      })
+      .catch(() => {
+        if (!annullato) dimPagina = null;
+      });
+    return () => {
+      annullato = true;
+    };
+  });
 
   // File recenti, mostrati nello stato vuoto.
   let recenti = $state([]);
@@ -85,7 +110,10 @@
     </div>
   {:else if src}
     <div class="pagina-wrap">
-      <img class="pagina" {src} alt={`Pagina ${s.pagina + 1} di ${s.nome}`} />
+      <img class="pagina" bind:this={imgEl} {src} alt={`Pagina ${s.pagina + 1} di ${s.nome}`} />
+      {#if schede.misura && dimPagina}
+        <StrumentoMisura {imgEl} larghezzaPt={dimPagina.larghezza} altezzaPt={dimPagina.altezza} />
+      {/if}
       {#if evid}
         <div class="overlay" class:tag={evid.tipo === "tag"} bind:this={overlayEl}>
           {#each evid.rettangoli as r}

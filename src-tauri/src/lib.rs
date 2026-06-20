@@ -2,6 +2,7 @@
 //! registrazione dei comandi.
 
 mod comandi;
+mod docling;
 mod ia;
 mod piper;
 mod stato;
@@ -56,6 +57,7 @@ pub fn run() {
             comandi::apri_pdf,
             comandi::file_recenti,
             comandi::render_pagina,
+            comandi::dimensioni_pagina,
             comandi::chiudi_documento,
             comandi::valida,
             comandi::salva_report_validazione,
@@ -94,6 +96,10 @@ pub fn run() {
             comandi::estrai_pagine,
             comandi::riordina_pagine,
             comandi::unisci_pdf,
+            docling::docling_stato,
+            docling::docling_prepara,
+            docling::analizza_struttura_ai,
+            docling::genera_pdf_accessibile,
         ])
         .run(tauri::generate_context!())
         .expect("errore nell'avvio di PDF Accessibility Studio");

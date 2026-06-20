@@ -82,6 +82,15 @@ pub fn render_immagine(percorso: &Path, indice: i32, larghezza: i32) -> Risultat
     })
 }
 
+/// Dimensioni di una pagina (indice 0-based) in punti PDF (1 pt = 1/72").
+/// Servono al righello/misura della UI per convertire pixel ⇄ punti ⇄ cm.
+pub fn dimensioni_pagina(percorso: &Path, indice: i32) -> Risultato<(f32, f32)> {
+    con_documento(percorso, |doc| {
+        let pagina = doc.pages().get(indice)?;
+        Ok((pagina.width().value, pagina.height().value))
+    })
+}
+
 /// Estrae il testo di ogni pagina (una stringa per pagina), in ordine di
 /// pagina. E' la base per la lettura vocale (Fase 3) e il confronto testuale
 /// (Fase 4).

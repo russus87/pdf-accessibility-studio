@@ -38,6 +38,10 @@
       onclick={() => schede.mostraPannello("tag")}>
       <span class="icona" aria-hidden="true">🏷</span><span>Tag</span>
     </button>
+    <button class:on={schede.pannello === "autotag"} disabled={!s}
+      onclick={() => schede.mostraPannello("autotag")}>
+      <span class="icona" aria-hidden="true">✨</span><span>Auto-tag</span>
+    </button>
     <button class:on={schede.pannello === "indice"} disabled={!s}
       onclick={() => schede.mostraPannello("indice")}>
       <span class="icona" aria-hidden="true">🔖</span><span>Indice</span>
@@ -53,6 +57,10 @@
     <button class:on={schede.pannello === "cerca"} disabled={!s}
       onclick={() => schede.mostraPannello("cerca")}>
       <span class="icona" aria-hidden="true">🔍</span><span>Cerca</span>
+    </button>
+    <button class:on={schede.misura} disabled={!s}
+      onclick={() => (schede.misura = !schede.misura)}>
+      <span class="icona" aria-hidden="true">📏</span><span>Misura</span>
     </button>
     <button class:on={schede.pannello === "confronta"} disabled={schede.schede.length < 2}
       onclick={() => schede.mostraPannello("confronta")}>

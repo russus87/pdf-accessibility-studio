@@ -2,7 +2,7 @@
   // Pannello struttura/tag: naviga, modifica i ruoli, riordina l'ordine di
   // lettura ed esporta in JSON/XML. Le modifiche salvano una copia corretta.
   import { schede } from "../lib/schede.svelte.js";
-  import { alberoTag, salvaTag, correggi, riordina, riquadroTag } from "../lib/api.js";
+  import { alberoTag, salvaTag, salvaDoclang, correggi, riordina, riquadroTag } from "../lib/api.js";
 
   const s = $derived(schede.schedaAttiva);
   let info = $state(null);
@@ -72,6 +72,16 @@
     }
   }
 
+  async function esportaDoclang() {
+    esito = null;
+    try {
+      const ok = await salvaDoclang(s.id);
+      if (ok) esito = "Esportato in DocLang (DocTags).";
+    } catch (e) {
+      esito = `Errore: ${e}`;
+    }
+  }
+
   async function salvaRuoli() {
     esito = null;
     const ruoli = Object.entries(ruoliMod)
@@ -120,6 +130,9 @@
       <div class="azioni">
         <button onclick={() => esporta("json")}>Export JSON</button>
         <button onclick={() => esporta("xml")}>Export XML</button>
+        {#if info.ha_struct_tree}
+          <button onclick={esportaDoclang} title="Serializzazione DocTags/DocLang dallo StructTree">Export DocLang</button>
+        {/if}
       </div>
     {/if}
   </header>

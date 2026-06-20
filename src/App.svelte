@@ -59,6 +59,7 @@
   import Anteprime from "./components/Anteprime.svelte";
   import PannelloValidazione from "./components/PannelloValidazione.svelte";
   import PannelloTag from "./components/PannelloTag.svelte";
+  import PannelloAutotag from "./components/PannelloAutotag.svelte";
   import PannelloSegnalibri from "./components/PannelloSegnalibri.svelte";
   import LettoreVocale from "./components/LettoreVocale.svelte";
   import PannelloCorrezione from "./components/PannelloCorrezione.svelte";
@@ -68,7 +69,7 @@
   import Confronto from "./components/Confronto.svelte";
 
   const lateralePannello = $derived(
-    ["valida", "indice", "tag", "leggi", "correggi", "pagine", "cerca", "metadati"].includes(schede.pannello) ? schede.pannello : null,
+    ["valida", "indice", "tag", "autotag", "leggi", "correggi", "pagine", "cerca", "metadati"].includes(schede.pannello) ? schede.pannello : null,
   );
 </script>
 
@@ -99,6 +100,7 @@
             {#if lateralePannello === "valida"}<PannelloValidazione />
             {:else if lateralePannello === "indice"}<PannelloSegnalibri />
             {:else if lateralePannello === "tag"}<PannelloTag />
+            {:else if lateralePannello === "autotag"}<PannelloAutotag />
             {:else if lateralePannello === "leggi"}<LettoreVocale />
             {:else if lateralePannello === "correggi"}<PannelloCorrezione />
             {:else if lateralePannello === "pagine"}<PannelloPagine />

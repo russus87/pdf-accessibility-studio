@@ -69,6 +69,32 @@ pub fn render_pagina(
     Ok(STANDARD.encode(png))
 }
 
+/// Dimensioni di una pagina in punti PDF (1 pt = 1/72"), per il righello/misura.
+#[derive(Serialize)]
+pub struct DimensioniPagina {
+    pub larghezza: f32,
+    pub altezza: f32,
+}
+
+/// Restituisce larghezza e altezza in punti della pagina (indice 0-based).
+#[tauri::command]
+pub fn dimensioni_pagina(
+    id: String,
+    indice: i32,
+    stato: State<StatoApp>,
+) -> Result<DimensioniPagina, String> {
+    let path = stato
+        .documenti
+        .lock()
+        .unwrap()
+        .get(&id)
+        .cloned()
+        .ok_or_else(|| "documento non aperto".to_string())?;
+
+    let (larghezza, altezza) = pdfa_core::dimensioni_pagina(&path, indice).map_err(|e| e.to_string())?;
+    Ok(DimensioniPagina { larghezza, altezza })
+}
+
 /// Chiude una scheda: dimentica il documento e, se nessun'altra scheda usa lo
 /// stesso file, lo rimuove dalla cache di rendering.
 #[tauri::command]
@@ -237,6 +263,7 @@ pub fn esporta_tag_stringa(id: String, formato: String, stato: State<StatoApp>) 
     let path = percorso(&stato, &id)?;
     match formato.as_str() {
         "xml" => pdfa_core::export::esporta_xml(&path),
+        "doclang" => pdfa_core::export::esporta_doclang(&path),
         _ => pdfa_core::export::esporta_json(&path),
     }
     .map_err(|e| e.to_string())

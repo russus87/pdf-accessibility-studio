@@ -265,6 +265,132 @@ pub fn genera_segnalibri(origine: &Path, destinazione: &Path) -> Risultato<usize
     Ok(titoli.len())
 }
 
+/// Un elemento di struttura proposto (tipicamente dall'analisi Docling), da
+/// trasformare in uno StructElem nel nuovo albero dei tag.
+#[derive(Debug, Clone)]
+pub struct Elemento {
+    /// Ruolo PDF/UA standard (P, H1..H6, Figure, Table, L, LI, Caption...).
+    pub ruolo: String,
+    /// Pagina 0-based a cui l'elemento appartiene (per /Pg), se nota.
+    pub pagina: Option<i32>,
+    /// Testo alternativo per le figure, se disponibile.
+    pub alt: Option<String>,
+}
+
+/// Genera una **bozza** di albero dei tag a partire dagli elementi proposti e
+/// salva una copia. Pensata per i PDF *senza* struttura (es. dall'analisi
+/// Docling): crea uno StructTreeRoot con un elemento radice `Document` e un
+/// StructElem per ogni proposta, imposta `MarkInfo/Marked`, `Lang` e `Title`.
+///
+/// ATTENZIONE: e' uno scheletro. Gli StructElem hanno il ruolo e la pagina ma
+/// NON il *marked content* (MCID) che li lega al testo reale nel content stream:
+/// per la piena conformita' PDF/UA servirebbe quel passaggio. Per questo NON
+/// scriviamo l'identificatore pdfuaid (sarebbe una falsa dichiarazione). La
+/// bozza va rifinita nei pannelli Tag/Correggi. Ritorna il numero di elementi creati.
+pub fn genera_struttura(
+    origine: &Path,
+    destinazione: &Path,
+    lang: Option<&str>,
+    titolo: Option<&str>,
+    elementi: &[Elemento],
+) -> Risultato<usize> {
+    let mut doc = Document::load(origine).map_err(|e| Errore::Pdfium(format!("lopdf: {e}")))?;
+
+    let catalog_id = doc
+        .trailer
+        .get(b"Root")
+        .and_then(|o| o.as_reference())
+        .map_err(|_| Errore::Pdfium("catalogo (Root) non trovato".into()))?;
+
+    // Mappa indice pagina (0-based) -> ObjectId della pagina, per /Pg.
+    let mut page_ids: HashMap<i32, ObjectId> = HashMap::new();
+    for (num, id) in doc.get_pages() {
+        page_ids.insert(num as i32 - 1, id);
+    }
+
+    // Riserva gli id: StructTreeRoot, elemento radice Document, ParentTree e
+    // un StructElem per ogni proposta.
+    let str_root_id = doc.new_object_id();
+    let doc_elem_id = doc.new_object_id();
+    let parent_tree_id = doc.new_object_id();
+    let elem_ids: Vec<ObjectId> = (0..elementi.len()).map(|_| doc.new_object_id()).collect();
+
+    // Crea gli StructElem figli.
+    let mut figli = Vec::with_capacity(elementi.len());
+    for (i, e) in elementi.iter().enumerate() {
+        let mut d = Dictionary::new();
+        d.set("Type", Object::Name(b"StructElem".to_vec()));
+        d.set("S", Object::Name(e.ruolo.as_bytes().to_vec()));
+        d.set("P", Object::Reference(doc_elem_id));
+        if let Some(pg) = e.pagina.and_then(|p| page_ids.get(&p)) {
+            d.set("Pg", Object::Reference(*pg));
+        }
+        if let Some(alt) = &e.alt {
+            if !alt.trim().is_empty() {
+                d.set("Alt", stringa_utf16(alt));
+            }
+        }
+        doc.set_object(elem_ids[i], d);
+        figli.push(Object::Reference(elem_ids[i]));
+    }
+
+    // Elemento radice "Document" che contiene tutti gli altri in ordine.
+    let mut docelem = Dictionary::new();
+    docelem.set("Type", Object::Name(b"StructElem".to_vec()));
+    docelem.set("S", Object::Name(b"Document".to_vec()));
+    docelem.set("P", Object::Reference(str_root_id));
+    docelem.set("K", Object::Array(figli));
+    doc.set_object(doc_elem_id, docelem);
+
+    // ParentTree (number tree) vuoto: chiave richiesta dallo StructTreeRoot.
+    // Resta vuoto perche' non c'e' ancora marked content da mappare.
+    let mut pt = Dictionary::new();
+    pt.set("Nums", Object::Array(Vec::new()));
+    doc.set_object(parent_tree_id, pt);
+
+    // StructTreeRoot.
+    let mut sr = Dictionary::new();
+    sr.set("Type", Object::Name(b"StructTreeRoot".to_vec()));
+    sr.set("K", Object::Reference(doc_elem_id));
+    sr.set("ParentTree", Object::Reference(parent_tree_id));
+    sr.set("ParentTreeNextKey", Object::Integer(0));
+    doc.set_object(str_root_id, sr);
+
+    // Catalogo: collega lo StructTreeRoot, marca il documento, imposta Lang.
+    {
+        let catalog = doc
+            .get_object_mut(catalog_id)
+            .and_then(|o| o.as_dict_mut())
+            .map_err(|e| Errore::Pdfium(format!("catalogo: {e}")))?;
+        catalog.set("StructTreeRoot", Object::Reference(str_root_id));
+        let mut mark_info = Dictionary::new();
+        mark_info.set("Marked", Object::Boolean(true));
+        catalog.set("MarkInfo", Object::Dictionary(mark_info));
+        if let Some(l) = lang.filter(|s| !s.trim().is_empty()) {
+            catalog.set("Lang", Object::string_literal(l));
+        }
+    }
+
+    // Info/Title (utile per DisplayDocTitle e per i lettori).
+    if let Some(t) = titolo.filter(|s| !s.trim().is_empty()) {
+        let info_id = match doc.trailer.get(b"Info").and_then(|o| o.as_reference()) {
+            Ok(id) => id,
+            Err(_) => {
+                let id = doc.add_object(Dictionary::new());
+                doc.trailer.set("Info", Object::Reference(id));
+                id
+            }
+        };
+        if let Ok(info) = doc.get_object_mut(info_id).and_then(|o| o.as_dict_mut()) {
+            info.set("Title", stringa_utf16(t));
+        }
+    }
+
+    doc.save(destinazione)
+        .map_err(|e| Errore::Io(format!("salvataggio: {e}")))?;
+    Ok(elementi.len())
+}
+
 /// Livello numerico di un ruolo Hn (None per ruoli non titolo).
 fn livello_heading(ruolo: &str) -> Option<u8> {
     ruolo.strip_prefix('H').and_then(|s| s.parse::<u8>().ok()).filter(|n| (1..=6).contains(n))

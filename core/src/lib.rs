@@ -11,6 +11,7 @@
 pub mod confronto;
 pub mod contrasto;
 pub mod correzione;
+pub mod doclang;
 pub mod documento;
 pub mod errore;
 pub mod export;
@@ -23,10 +24,12 @@ pub mod pdfium;
 pub mod ricerca;
 pub mod segnalibri;
 pub mod struttura;
+pub mod taggatura;
 pub mod tts;
 pub mod validazione;
 
-pub use documento::{apri, render_pagina, rimuovi_dalla_cache, testo_pagine, InfoDocumento};
+pub use doclang::{analizza_json as analizza_doclang, Analisi as AnalisiDoclang};
+pub use documento::{apri, dimensioni_pagina, render_pagina, rimuovi_dalla_cache, testo_pagine, InfoDocumento};
 pub use errore::{Errore, Risultato};
 pub use struttura::{analizza, InfoStruttura};
 pub use validazione::{valida, Report};
