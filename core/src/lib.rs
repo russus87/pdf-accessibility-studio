@@ -10,8 +10,10 @@
 
 pub mod artifact;
 pub mod campi;
+pub mod cifratura;
 pub mod confronto;
 pub mod contrasto;
+pub mod conversione;
 pub mod correzione;
 pub mod doclang;
 pub mod documento;
@@ -19,9 +21,11 @@ pub mod errore;
 pub mod export;
 pub mod form;
 pub mod geometria;
+pub mod intestazioni;
 pub mod lettura;
 pub mod metadati;
 pub mod modello;
+pub mod redazione;
 pub mod ocr;
 pub mod pagine;
 pub mod pdfium;

@@ -258,6 +258,37 @@ Alt, cambio ruolo e riordino su un PDF taggato costruito al volo.
 > Salvataggio combinato editor (`salva_editor`): applica overlay (Fase 24) e poi i
 > campi (Fase 26) producendo un unico PDF.
 
+## Fase 27 — Protezione/cifratura ✅
+
+- ✅ `core/cifratura.rs` (lopdf encryption): `proteggi` (password apertura + proprietario,
+  permessi stampa/copia/modifica/annotazioni, 128 bit; copia per accessibilità sempre
+  consentita), `rimuovi_protezione` (via `load_with_password`), `e_protetto`. Genera un
+  /ID se assente. Comandi `proteggi_pdf`/`sblocca_pdf`/`pdf_protetto`.
+
+## Fase 28 — Redazione (GDPR) ✅
+
+- ✅ `core/redazione.rs` (Pdfium): rimuove **definitivamente** gli oggetti che
+  intersecano le aree indicate e li copre con un tassello nero. Comando `redigi`;
+  strumento **Redazione** nell'Editor (box rossi, salvataggio dedicato).
+- ⚠️ Gli oggetti rimossi sono volutamente "dimenticati" (non liberati) per evitare
+  un use-after-free interno di Pdfium: piccola perdita di memoria per operazione.
+
+## Fase 29 — Conversione immagini ✅
+
+- ✅ `core/conversione.rs` (Pdfium + image): `pdf_a_immagini` (PNG/JPEG per pagina) e
+  `immagini_a_pdf` (un'immagine per pagina). Comandi `esporta_immagini`/`crea_pdf_da_immagini`.
+  Abilitato il feature `jpeg` del crate `image`.
+
+## Fase 30 — Numerazione / intestazioni ✅
+
+- ✅ `core/intestazioni.rs`: applica un testo a tutte le pagine in 6 posizioni, con
+  segnaposto `{n}`/`{tot}` e numero iniziale; si appoggia al motore di overlay.
+  Comando `numera_pagine`.
+
+> Pannello **Strumenti PDF** (`PannelloStrumenti.svelte`): protezione, esporta/crea da
+> immagini, numerazione. Redazione integrata nell'Editor. Test: `core/tests/evolutive.rs`
+> (cifratura, conversione, intestazioni, redazione; i test Pdfium serializzati con mutex).
+
 ## Idee future ⏳
 
 - ⏳ Anteprime con drag&drop per riordino, miniature nel pannello Pagine

@@ -5,7 +5,7 @@
   import { schede } from "../lib/schede.svelte.js";
   import {
     renderPagina, dimensioniPagina, salvaEditor,
-    firmeElenco, firmaSalva, firmaElimina,
+    firmeElenco, firmaSalva, firmaElimina, redigi,
   } from "../lib/api.js";
 
   const s = $derived(schede.schedaAttiva);
@@ -19,9 +19,11 @@
   let areaEl = $state(null);
   let cursore = $state(null); // { x_mm, y_mm } sotto al puntatore
 
-  let strumento = $state("testo"); // testo | immagine | firma | campo
+  let strumento = $state("testo"); // testo | immagine | firma | campo | redazione
   let elementi = $state([]); // overlay: testo/immagine/firma
   let campi = $state([]); // campi modulo
+  let redazioni = $state([]); // aree da redigere
+  let red = $state({ larghezza_mm: 60, altezza_mm: 10 });
   let prossimoId = 0;
 
   // Configurazione dello strumento attivo.
@@ -95,14 +97,30 @@
     } else if (strumento === "campo") {
       campi.push({ id: prossimoId++, pagina, x_mm, y_mm,
         nome: campo.nome, tooltip: campo.tooltip, larghezza_mm: campo.larghezza_mm, altezza_mm: campo.altezza_mm });
+    } else if (strumento === "redazione") {
+      redazioni.push({ id: prossimoId++, pagina, x_mm, y_mm, larghezza_mm: red.larghezza_mm, altezza_mm: red.altezza_mm });
     }
     elementi = [...elementi];
     campi = [...campi];
+    redazioni = [...redazioni];
   }
 
   function rimuovi(lista, id) {
     if (lista === "el") elementi = elementi.filter((x) => x.id !== id);
-    else campi = campi.filter((x) => x.id !== id);
+    else if (lista === "campo") campi = campi.filter((x) => x.id !== id);
+    else redazioni = redazioni.filter((x) => x.id !== id);
+  }
+
+  async function salvaRedazione() {
+    if (!s || !redazioni.length) { esito = { ok: false, msg: "Aggiungi almeno un'area da redigere." }; return; }
+    esito = null;
+    try {
+      const aree = redazioni.map((a) => ({ pagina: a.pagina, x_mm: a.x_mm, y_mm: a.y_mm, larghezza_mm: a.larghezza_mm, altezza_mm: a.altezza_mm }));
+      const r = await redigi(s.id, aree);
+      if (r) esito = { ok: true, dest: r.dest, n: r.n };
+    } catch (e) {
+      esito = { ok: false, msg: String(e) };
+    }
   }
 
   // Lettura di un file immagine come base64 (senza prefisso data URL).
@@ -186,6 +204,7 @@
 
   const elementiPagina = $derived(elementi.filter((x) => x.pagina === pagina));
   const campiPagina = $derived(campi.filter((x) => x.pagina === pagina));
+  const redazioniPagina = $derived(redazioni.filter((x) => x.pagina === pagina));
   // Tacche del righello ogni 10 mm.
   const tacche = (lungMm) => Array.from({ length: Math.ceil(lungMm / 10) + 1 }, (_, i) => i * 10);
 </script>
@@ -202,7 +221,7 @@
       </div>
 
       <div class="strumenti">
-        {#each [["testo", "Testo"], ["immagine", "Immagine"], ["firma", "Firma"], ["campo", "Campo"]] as [k, lab]}
+        {#each [["testo", "Testo"], ["immagine", "Immagine"], ["firma", "Firma"], ["campo", "Campo"], ["redazione", "Redazione"]] as [k, lab]}
           <button class:on={strumento === k} onclick={() => (strumento = k)}>{lab}</button>
         {/each}
       </div>
@@ -259,6 +278,17 @@
             <label>A.mm<input type="number" min="4" bind:value={campo.altezza_mm} /></label>
           </div>
           <p class="hint">Clicca sulla pagina per posizionare il campo.</p>
+        </div>
+      {:else if strumento === "redazione"}
+        <div class="cfg">
+          <div class="riga">
+            <label>L.mm<input type="number" min="2" bind:value={red.larghezza_mm} /></label>
+            <label>A.mm<input type="number" min="2" bind:value={red.altezza_mm} /></label>
+          </div>
+          <p class="hint">Clicca per aggiungere un'area da oscurare <b>definitivamente</b> (il contenuto sotto viene rimosso).</p>
+          {#if redazioni.length}
+            <button class="salva rosso" onclick={salvaRedazione}>Salva con redazione ({redazioni.length})…</button>
+          {/if}
         </div>
       {/if}
 
@@ -342,6 +372,9 @@
             {#each campiPagina as c}
               <div class="campo-box" style={`left:${c.x_mm * pxPerMm}px; top:${c.y_mm * pxPerMm}px; width:${c.larghezza_mm * pxPerMm}px; height:${c.altezza_mm * pxPerMm}px;`}>{c.nome}</div>
             {/each}
+            {#each redazioniPagina as a}
+              <div class="red-box" style={`left:${a.x_mm * pxPerMm}px; top:${a.y_mm * pxPerMm}px; width:${a.larghezza_mm * pxPerMm}px; height:${a.altezza_mm * pxPerMm}px;`}></div>
+            {/each}
           </div>
         </div>
       </div>
@@ -403,4 +436,6 @@
   .pagina img { display: block; width: 100%; height: 100%; user-select: none; }
   .marker { position: absolute; transform: translate(-2px, -2px); background: var(--accento); color: #fff; font-size: 11px; min-width: 16px; height: 16px; border-radius: 3px; display: flex; align-items: center; justify-content: center; pointer-events: none; }
   .campo-box { position: absolute; border: 1.5px dashed #1e6fd8; background: rgba(30,111,216,0.12); color: #1e6fd8; font-size: 10px; padding: 1px 3px; box-sizing: border-box; pointer-events: none; overflow: hidden; }
+  .red-box { position: absolute; background: rgba(0,0,0,0.82); border: 1px solid #c81e1e; box-sizing: border-box; pointer-events: none; }
+  .salva.rosso { background: #c81e1e; }
 </style>

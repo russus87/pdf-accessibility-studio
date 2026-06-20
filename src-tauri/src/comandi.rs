@@ -820,6 +820,138 @@ pub fn salva_editor(
     Ok(totale)
 }
 
+// --- Protezione/cifratura (Fase 27) -------------------------------------------
+
+#[derive(serde::Deserialize, Default)]
+pub struct PermessiInput {
+    pub stampa: bool,
+    pub copia: bool,
+    pub modifica: bool,
+    pub annotazioni: bool,
+}
+
+#[tauri::command]
+pub fn pdf_protetto(id: String, stato: State<StatoApp>) -> Result<bool, String> {
+    let path = percorso(&stato, &id)?;
+    pdfa_core::cifratura::e_protetto(&path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn proteggi_pdf(
+    id: String,
+    password_utente: String,
+    password_proprietario: String,
+    permessi: PermessiInput,
+    destinazione: String,
+    stato: State<StatoApp>,
+) -> Result<(), String> {
+    let path = percorso(&stato, &id)?;
+    let p = pdfa_core::cifratura::Permessi {
+        stampa: permessi.stampa,
+        copia: permessi.copia,
+        modifica: permessi.modifica,
+        annotazioni: permessi.annotazioni,
+    };
+    pdfa_core::cifratura::proteggi(&path, std::path::Path::new(&destinazione), &password_utente, &password_proprietario, &p)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn sblocca_pdf(id: String, password: String, destinazione: String, stato: State<StatoApp>) -> Result<(), String> {
+    let path = percorso(&stato, &id)?;
+    pdfa_core::cifratura::rimuovi_protezione(&path, std::path::Path::new(&destinazione), &password)
+        .map_err(|e| e.to_string())
+}
+
+// --- Conversione immagini (Fase 29) -------------------------------------------
+
+/// Esporta le pagine come immagini nella cartella indicata. Ritorna i percorsi.
+#[tauri::command]
+pub fn esporta_immagini(
+    id: String,
+    larghezza: i32,
+    jpeg: bool,
+    cartella: String,
+    stato: State<StatoApp>,
+) -> Result<Vec<String>, String> {
+    let path = percorso(&stato, &id)?;
+    let imgs = pdfa_core::conversione::pdf_a_immagini(&path, larghezza, jpeg).map_err(|e| e.to_string())?;
+    let ext = if jpeg { "jpg" } else { "png" };
+    let base = nome(&path);
+    let stem = base.trim_end_matches(".pdf");
+    let mut percorsi = Vec::new();
+    for (i, bytes) in imgs.iter().enumerate() {
+        let file = std::path::Path::new(&cartella).join(format!("{stem}-{:03}.{ext}", i + 1));
+        std::fs::write(&file, bytes).map_err(|e| e.to_string())?;
+        percorsi.push(file.to_string_lossy().into_owned());
+    }
+    Ok(percorsi)
+}
+
+/// Crea un PDF da immagini (base64) e lo salva.
+#[tauri::command]
+pub fn crea_pdf_da_immagini(immagini: Vec<String>, destinazione: String) -> Result<usize, String> {
+    let mut bytes = Vec::new();
+    for b64 in &immagini {
+        bytes.push(STANDARD.decode(b64.trim()).map_err(|e| format!("immagine non valida: {e}"))?);
+    }
+    pdfa_core::conversione::immagini_a_pdf(&bytes, std::path::Path::new(&destinazione)).map_err(|e| e.to_string())
+}
+
+// --- Numerazione / intestazioni (Fase 30) -------------------------------------
+
+#[tauri::command]
+#[allow(clippy::too_many_arguments)]
+pub fn numera_pagine(
+    id: String,
+    testo: String,
+    dim_pt: f32,
+    colore: Option<String>,
+    margine_mm: f32,
+    ancora: String,
+    inizio: i64,
+    destinazione: String,
+    stato: State<StatoApp>,
+) -> Result<usize, String> {
+    let path = percorso(&stato, &id)?;
+    let op = pdfa_core::intestazioni::Opzioni {
+        testo,
+        dim_pt,
+        colore: colore_da_hex(&colore),
+        margine_mm,
+        ancora: pdfa_core::intestazioni::Ancora::da_str(&ancora),
+        inizio_numerazione: inizio,
+    };
+    pdfa_core::intestazioni::applica(&path, std::path::Path::new(&destinazione), &op).map_err(|e| e.to_string())
+}
+
+// --- Redazione (Fase 28) ------------------------------------------------------
+
+#[derive(serde::Deserialize)]
+pub struct AreaInput {
+    pub pagina: u16,
+    pub x_mm: f32,
+    pub y_mm: f32,
+    pub larghezza_mm: f32,
+    pub altezza_mm: f32,
+}
+
+#[tauri::command]
+pub fn redigi(id: String, aree: Vec<AreaInput>, destinazione: String, stato: State<StatoApp>) -> Result<usize, String> {
+    let path = percorso(&stato, &id)?;
+    let aree: Vec<pdfa_core::redazione::Area> = aree
+        .into_iter()
+        .map(|a| pdfa_core::redazione::Area {
+            pagina: a.pagina,
+            x_mm: a.x_mm,
+            y_mm: a.y_mm,
+            larghezza_mm: a.larghezza_mm,
+            altezza_mm: a.altezza_mm,
+        })
+        .collect();
+    pdfa_core::redazione::redigi(&path, std::path::Path::new(&destinazione), &aree).map_err(|e| e.to_string())
+}
+
 // --- Campi modulo editabili (Fase 26) -----------------------------------------
 
 /// Un nuovo campo di testo da inserire (dall'editor). Campi annidati snake_case.

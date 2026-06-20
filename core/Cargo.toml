@@ -14,7 +14,7 @@ thiserror = "2"
 # globale condiviso tra i thread di Tauri. "image" espone le pagine come immagini.
 pdfium-render = { version = "0.9", features = ["thread_safe", "image_025"] }
 # Codifica PNG delle pagine renderizzate da mandare alla UI.
-image = { version = "0.25", default-features = false, features = ["png"] }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 # Parser PDF a basso livello: structure tree / tag (validazione, confronto, export).
 lopdf = "0.41"
 # Diff testuale per il confronto tra PDF.
@@ -33,3 +33,4 @@ ttf-parser = "0.25"
 
 [dev-dependencies]
 tempfile = "3"
+image = { version = "0.25", default-features = false, features = ["png"] }

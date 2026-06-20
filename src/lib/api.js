@@ -402,6 +402,66 @@ export async function sovrapponi(id, elementi, filigrana) {
   return { dest: destinazione, n };
 }
 
+// --- Protezione/cifratura (Fase 27) ---
+export function pdfProtetto(id) {
+  return invoke("pdf_protetto", { id });
+}
+/** Cifra il PDF con password+permessi; salva una copia. Ritorna il percorso o null. */
+export async function proteggiPdf(id, passwordUtente, passwordProprietario, permessi) {
+  const destinazione = await save({ defaultPath: "protetto.pdf", filters: [{ name: "PDF", extensions: ["pdf"] }] });
+  if (!destinazione) return null;
+  await invoke("proteggi_pdf", { id, passwordUtente, passwordProprietario, permessi, destinazione });
+  return destinazione;
+}
+/** Rimuove la protezione (data la password); salva una copia. */
+export async function sbloccaPdf(id, password) {
+  const destinazione = await save({ defaultPath: "sbloccato.pdf", filters: [{ name: "PDF", extensions: ["pdf"] }] });
+  if (!destinazione) return null;
+  await invoke("sblocca_pdf", { id, password, destinazione });
+  return destinazione;
+}
+
+// --- Conversione immagini (Fase 29) ---
+/** Esporta le pagine come immagini in una cartella scelta. Ritorna i percorsi o null. */
+export async function esportaImmagini(id, larghezza, jpeg) {
+  const cartella = await open({ directory: true });
+  if (!cartella) return null;
+  return invoke("esporta_immagini", { id, larghezza, jpeg, cartella });
+}
+/** Crea un PDF da immagini (base64) e lo salva. Ritorna il percorso o null. */
+export async function creaPdfDaImmagini(immaginiBase64) {
+  const destinazione = await save({ defaultPath: "da-immagini.pdf", filters: [{ name: "PDF", extensions: ["pdf"] }] });
+  if (!destinazione) return null;
+  await invoke("crea_pdf_da_immagini", { immagini: immaginiBase64, destinazione });
+  return destinazione;
+}
+
+// --- Numerazione / intestazioni (Fase 30) ---
+export async function numeraPagine(id, opts) {
+  const destinazione = await save({ defaultPath: "numerato.pdf", filters: [{ name: "PDF", extensions: ["pdf"] }] });
+  if (!destinazione) return null;
+  const n = await invoke("numera_pagine", {
+    id,
+    testo: opts.testo,
+    dimPt: opts.dimPt,
+    colore: opts.colore ?? null,
+    margineMm: opts.margineMm,
+    ancora: opts.ancora,
+    inizio: opts.inizio,
+    destinazione,
+  });
+  return { dest: destinazione, n };
+}
+
+// --- Redazione (Fase 28) ---
+/** Redige le aree (definitivamente) e salva una copia. `aree` con campi snake_case. */
+export async function redigi(id, aree) {
+  const destinazione = await save({ defaultPath: "redatto.pdf", filters: [{ name: "PDF", extensions: ["pdf"] }] });
+  if (!destinazione) return null;
+  const n = await invoke("redigi", { id, aree, destinazione });
+  return { dest: destinazione, n };
+}
+
 // --- Libreria firme (Fase 25) ---
 /** Elenco firme salvate: [{ nome, dati_base64 }]. */
 export function firmeElenco() {

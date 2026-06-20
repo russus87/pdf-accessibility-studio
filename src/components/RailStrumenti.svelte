@@ -74,6 +74,10 @@
       onclick={() => schede.mostraPannello("cerca")}>
       <span class="icona" aria-hidden="true">🔍</span><span>Cerca</span>
     </button>
+    <button class:on={schede.pannello === "strumenti"} disabled={!s}
+      onclick={() => schede.mostraPannello("strumenti")}>
+      <span class="icona" aria-hidden="true">🛠</span><span>Strumenti PDF</span>
+    </button>
     <button class:on={schede.misura} disabled={!s}
       onclick={() => (schede.misura = !schede.misura)}>
       <span class="icona" aria-hidden="true">📏</span><span>Misura</span>
