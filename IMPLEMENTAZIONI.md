@@ -315,6 +315,31 @@ Alt, cambio ruolo e riordino su un PDF taggato costruito al volo.
 - ✅ Pannello Moduli: modalità **Compila** con valori, flatten, **import/export dati JSON**
   (per nome campo). Test `compila_modulo_imposta_valore` in `evolutive2.rs`.
 
+## Fase 35 — Organizer pagine (ritaglio + inserimento) ✅
+
+- ✅ `core/pagine.rs`: `ritaglia` (CropBox in mm sulle pagine selezionate) e
+  `inserisci` (pagine da un altro PDF in una posizione). Comandi `ritaglia_pagine`
+  / `inserisci_pagine`; nel pannello Pagine i pulsanti *Inserisci PDF…* e *Ritaglia…*.
+
+## Fase 36 — Stampa unione (mail merge) ✅
+
+- ✅ `core/modello.rs::genera_unione`: rende il modello per ogni record di un array
+  JSON → un PDF per record. Comando `stampa_unione` (combina in un file o salva
+  separati in cartella). Scheda **Unione** nel Creatore. Test in `evolutive3.rs`.
+
+## Fase 37 — AI sul documento ✅
+
+- ✅ `ia.rs::chiedi` (chiamata testuale a Claude) + comandi `ai_riassumi` /
+  `ai_domanda` / `ai_traduci`: estraggono il testo del documento (troncato) e lo
+  inviano a Claude. Nuovo pannello **AI documento** (riassunto, Q&A, traduzione).
+
+## Fase 38 — Annotazioni & revisione ✅
+
+- ✅ `core/annotazioni.rs`: aggiunge evidenziazioni (Highlight), note (Text) e
+  caselle di testo (FreeText) come annotazioni PDF; `riepilogo` le rilegge.
+  Comandi `annota` / `riepilogo_annotazioni`. Strumenti **Evidenzia** e **Nota**
+  nell'Editor. Test (applica + riepilogo) in `evolutive3.rs`.
+
 ## Idee future ⏳
 
 - ⏳ Anteprime con drag&drop per riordino, miniature nel pannello Pagine

@@ -2,13 +2,15 @@
   // Operazioni sulle pagine: ruota / elimina / estrai (su selezione), riordina,
   // unisci con altri PDF. Ogni operazione salva una copia.
   import { schede } from "../lib/schede.svelte.js";
-  import { ruotaPagine, eliminaPagine, estraiPagine, riordinaPagine, unisciPdf } from "../lib/api.js";
+  import { ruotaPagine, eliminaPagine, estraiPagine, riordinaPagine, unisciPdf, ritagliaPagine, inserisciPagine } from "../lib/api.js";
 
   const s = $derived(schede.schedaAttiva);
   let modo = $state("selezione"); // "selezione" | "riordina"
   let sel = $state([]);
   let ordine = $state([]);
   let esito = $state(null);
+  let crop = $state({ x: 10, y: 10, w: 150, h: 200 });
+  let mostraCrop = $state(false);
 
   $effect(() => {
     if (!s) return;
@@ -74,7 +76,21 @@
       <button onclick={() => esegui(() => eliminaPagine(s.id, selezionate))}>Elimina</button>
       <button onclick={() => esegui(() => estraiPagine(s.id, selezionate))}>Estrai</button>
       <button class="unisci" onclick={() => esegui(() => unisciPdf(s.id), false)}>Unisci con…</button>
+      <button onclick={() => esegui(() => inserisciPagine(s.id, selezionate[0] ?? (s.pagine + 1)), false)}>Inserisci PDF…</button>
+      <button onclick={() => (mostraCrop = !mostraCrop)}>Ritaglia…</button>
     </div>
+    {#if mostraCrop}
+      <div class="crop">
+        <span class="ct">Area di ritaglio (mm, da alto-sx) sulle pagine selezionate</span>
+        <div class="cr">
+          <label>X<input type="number" bind:value={crop.x} /></label>
+          <label>Y<input type="number" bind:value={crop.y} /></label>
+          <label>L<input type="number" bind:value={crop.w} /></label>
+          <label>A<input type="number" bind:value={crop.h} /></label>
+        </div>
+        <button onclick={() => esegui(() => ritagliaPagine(s.id, selezionate, crop))}>Applica ritaglio…</button>
+      </div>
+    {/if}
     <div class="seltutto">
       <button onclick={() => tutto(true)}>Seleziona tutto</button>
       <button onclick={() => tutto(false)}>Deseleziona</button>
@@ -106,6 +122,11 @@
 </div>
 
 <style>
+  .crop { display: flex; flex-direction: column; gap: 6px; margin: 0 14px 8px; padding: 8px; background: var(--scheda); border: 1px solid var(--bordo); border-radius: 8px; }
+  .crop .ct { font-size: 11px; color: var(--testo-soft); }
+  .crop .cr { display: flex; gap: 6px; }
+  .crop .cr label { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: var(--testo-soft); flex: 1; }
+  .crop .cr input { width: 100%; box-sizing: border-box; background: var(--sfondo); color: var(--testo); border: 1px solid var(--bordo); border-radius: 6px; padding: 4px 6px; }
   .pannello {
     display: flex;
     flex-direction: column;

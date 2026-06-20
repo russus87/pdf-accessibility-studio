@@ -5,7 +5,7 @@
   import { schede } from "../lib/schede.svelte.js";
   import {
     renderPagina, dimensioniPagina, salvaEditor,
-    firmeElenco, firmaSalva, firmaElimina, redigi,
+    firmeElenco, firmaSalva, firmaElimina, redigi, annota,
   } from "../lib/api.js";
 
   const s = $derived(schede.schedaAttiva);
@@ -24,6 +24,8 @@
   let campi = $state([]); // campi modulo
   let redazioni = $state([]); // aree da redigere
   let red = $state({ larghezza_mm: 60, altezza_mm: 10 });
+  let annotazioni = $state([]); // evidenziazioni / note
+  let ann = $state({ larghezza_mm: 50, altezza_mm: 6, contenuto: "", colore: "#ffe53c" });
   let prossimoId = 0;
 
   // Configurazione dello strumento attivo.
@@ -99,16 +101,35 @@
         nome: campo.nome, tooltip: campo.tooltip, larghezza_mm: campo.larghezza_mm, altezza_mm: campo.altezza_mm });
     } else if (strumento === "redazione") {
       redazioni.push({ id: prossimoId++, pagina, x_mm, y_mm, larghezza_mm: red.larghezza_mm, altezza_mm: red.altezza_mm });
+    } else if (strumento === "evidenzia") {
+      annotazioni.push({ id: prossimoId++, tipo: "evidenzia", pagina, x_mm, y_mm, larghezza_mm: ann.larghezza_mm, altezza_mm: ann.altezza_mm, colore: ann.colore });
+    } else if (strumento === "nota") {
+      annotazioni.push({ id: prossimoId++, tipo: "nota", pagina, x_mm, y_mm, contenuto: ann.contenuto || "Nota", colore: "#ffd100" });
     }
     elementi = [...elementi];
     campi = [...campi];
     redazioni = [...redazioni];
+    annotazioni = [...annotazioni];
   }
 
   function rimuovi(lista, id) {
     if (lista === "el") elementi = elementi.filter((x) => x.id !== id);
     else if (lista === "campo") campi = campi.filter((x) => x.id !== id);
-    else redazioni = redazioni.filter((x) => x.id !== id);
+    else if (lista === "red") redazioni = redazioni.filter((x) => x.id !== id);
+    else annotazioni = annotazioni.filter((x) => x.id !== id);
+  }
+
+  async function salvaAnnotazioni() {
+    if (!s || !annotazioni.length) { esito = { ok: false, msg: "Aggiungi un'annotazione." }; return; }
+    esito = null;
+    try {
+      const a = annotazioni.map((x) => ({ tipo: x.tipo, pagina: x.pagina, x_mm: x.x_mm, y_mm: x.y_mm,
+        larghezza_mm: x.larghezza_mm ?? null, altezza_mm: x.altezza_mm ?? null, contenuto: x.contenuto ?? null, dim_pt: null, colore: x.colore ?? null }));
+      const r = await annota(s.id, a);
+      if (r) esito = { ok: true, dest: r.dest, n: r.n };
+    } catch (e) {
+      esito = { ok: false, msg: String(e) };
+    }
   }
 
   async function salvaRedazione() {
@@ -205,6 +226,7 @@
   const elementiPagina = $derived(elementi.filter((x) => x.pagina === pagina));
   const campiPagina = $derived(campi.filter((x) => x.pagina === pagina));
   const redazioniPagina = $derived(redazioni.filter((x) => x.pagina === pagina));
+  const annotazioniPagina = $derived(annotazioni.filter((x) => x.pagina === pagina));
   // Tacche del righello ogni 10 mm.
   const tacche = (lungMm) => Array.from({ length: Math.ceil(lungMm / 10) + 1 }, (_, i) => i * 10);
 </script>
@@ -221,7 +243,7 @@
       </div>
 
       <div class="strumenti">
-        {#each [["testo", "Testo"], ["immagine", "Immagine"], ["firma", "Firma"], ["campo", "Campo"], ["redazione", "Redazione"]] as [k, lab]}
+        {#each [["testo", "Testo"], ["immagine", "Immagine"], ["firma", "Firma"], ["campo", "Campo"], ["evidenzia", "Evidenzia"], ["nota", "Nota"], ["redazione", "Redazione"]] as [k, lab]}
           <button class:on={strumento === k} onclick={() => (strumento = k)}>{lab}</button>
         {/each}
       </div>
@@ -278,6 +300,22 @@
             <label>A.mm<input type="number" min="4" bind:value={campo.altezza_mm} /></label>
           </div>
           <p class="hint">Clicca sulla pagina per posizionare il campo.</p>
+        </div>
+      {:else if strumento === "evidenzia"}
+        <div class="cfg">
+          <div class="riga">
+            <label>L.mm<input type="number" min="2" bind:value={ann.larghezza_mm} /></label>
+            <label>A.mm<input type="number" min="2" bind:value={ann.altezza_mm} /></label>
+            <label>Colore<input type="color" bind:value={ann.colore} /></label>
+          </div>
+          <p class="hint">Clicca per evidenziare un'area.</p>
+          {#if annotazioni.length}<button class="salva" onclick={salvaAnnotazioni}>Salva annotazioni ({annotazioni.length})…</button>{/if}
+        </div>
+      {:else if strumento === "nota"}
+        <div class="cfg">
+          <label>Testo nota<input type="text" bind:value={ann.contenuto} placeholder="Contenuto della nota" /></label>
+          <p class="hint">Clicca per inserire una nota a fumetto.</p>
+          {#if annotazioni.length}<button class="salva" onclick={salvaAnnotazioni}>Salva annotazioni ({annotazioni.length})…</button>{/if}
         </div>
       {:else if strumento === "redazione"}
         <div class="cfg">
@@ -375,6 +413,13 @@
             {#each redazioniPagina as a}
               <div class="red-box" style={`left:${a.x_mm * pxPerMm}px; top:${a.y_mm * pxPerMm}px; width:${a.larghezza_mm * pxPerMm}px; height:${a.altezza_mm * pxPerMm}px;`}></div>
             {/each}
+            {#each annotazioniPagina as a}
+              {#if a.tipo === "evidenzia"}
+                <div class="evid-box" style={`left:${a.x_mm * pxPerMm}px; top:${a.y_mm * pxPerMm}px; width:${a.larghezza_mm * pxPerMm}px; height:${a.altezza_mm * pxPerMm}px; background:${a.colore};`}></div>
+              {:else}
+                <div class="nota-pin" style={`left:${a.x_mm * pxPerMm}px; top:${a.y_mm * pxPerMm}px;`} title={a.contenuto}>📝</div>
+              {/if}
+            {/each}
           </div>
         </div>
       </div>
@@ -438,4 +483,6 @@
   .campo-box { position: absolute; border: 1.5px dashed #1e6fd8; background: rgba(30,111,216,0.12); color: #1e6fd8; font-size: 10px; padding: 1px 3px; box-sizing: border-box; pointer-events: none; overflow: hidden; }
   .red-box { position: absolute; background: rgba(0,0,0,0.82); border: 1px solid #c81e1e; box-sizing: border-box; pointer-events: none; }
   .salva.rosso { background: #c81e1e; }
+  .evid-box { position: absolute; opacity: 0.4; box-sizing: border-box; pointer-events: none; }
+  .nota-pin { position: absolute; transform: translate(-2px, -50%); font-size: 14px; pointer-events: none; }
 </style>

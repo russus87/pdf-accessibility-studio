@@ -66,6 +66,10 @@
       onclick={() => schede.mostraPannello("leggi")}>
       <span class="icona" aria-hidden="true">🔊</span><span>Leggi</span>
     </button>
+    <button class:on={schede.pannello === "ai"} disabled={!s}
+      onclick={() => schede.mostraPannello("ai")}>
+      <span class="icona" aria-hidden="true">🤖</span><span>AI documento</span>
+    </button>
   </div>
 
   <div class="gruppo">

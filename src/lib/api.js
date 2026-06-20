@@ -509,6 +509,57 @@ export async function batch(operazione, testo) {
   return invoke("batch", { files, operazione, testo: testo ?? null, cartella });
 }
 
+// --- Organizer pagine (Fase 35) ---
+export async function ritagliaPagine(id, pagine, box_) {
+  const destinazione = await save({ defaultPath: "ritagliato.pdf", filters: [{ name: "PDF", extensions: ["pdf"] }] });
+  if (!destinazione) return null;
+  await invoke("ritaglia_pagine", { id, pagine, xMm: box_.x, yMm: box_.y, larghezzaMm: box_.w, altezzaMm: box_.h, destinazione });
+  return destinazione;
+}
+export async function inserisciPagine(id, posizione) {
+  const altro = await open({ filters: [{ name: "PDF", extensions: ["pdf"] }] });
+  if (!altro) return null;
+  const destinazione = await save({ defaultPath: "unito.pdf", filters: [{ name: "PDF", extensions: ["pdf"] }] });
+  if (!destinazione) return null;
+  await invoke("inserisci_pagine", { id, altro, posizione, destinazione });
+  return destinazione;
+}
+
+// --- Stampa unione / mail merge (Fase 36) ---
+export async function stampaUnione(modello, dati, combina) {
+  let destinazione;
+  if (combina) {
+    destinazione = await save({ defaultPath: "unione.pdf", filters: [{ name: "PDF", extensions: ["pdf"] }] });
+  } else {
+    destinazione = await open({ directory: true });
+  }
+  if (!destinazione) return null;
+  const n = await invoke("stampa_unione", { modello, dati, combina: !!combina, destinazione });
+  return { n, combina: !!combina, dest: destinazione };
+}
+
+// --- AI sul documento (Fase 37) ---
+export function aiRiassumi(id) {
+  return invoke("ai_riassumi", { id });
+}
+export function aiDomanda(id, domanda) {
+  return invoke("ai_domanda", { id, domanda });
+}
+export function aiTraduci(id, lingua) {
+  return invoke("ai_traduci", { id, lingua });
+}
+
+// --- Annotazioni (Fase 38) ---
+export async function annota(id, annotazioni) {
+  const destinazione = await save({ defaultPath: "annotato.pdf", filters: [{ name: "PDF", extensions: ["pdf"] }] });
+  if (!destinazione) return null;
+  const n = await invoke("annota", { id, annotazioni, destinazione });
+  return { dest: destinazione, n };
+}
+export function riepilogoAnnotazioni(id) {
+  return invoke("riepilogo_annotazioni", { id });
+}
+
 // --- Libreria firme (Fase 25) ---
 /** Elenco firme salvate: [{ nome, dati_base64 }]. */
 export function firmeElenco() {

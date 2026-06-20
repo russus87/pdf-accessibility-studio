@@ -1095,6 +1095,158 @@ fn esegui_batch(src: &std::path::Path, op: &str, testo: Option<&str>, out_dir: &
     }
 }
 
+// --- Organizer pagine: ritaglio e inserimento (Fase 35) -----------------------
+
+#[tauri::command]
+#[allow(clippy::too_many_arguments)]
+pub fn ritaglia_pagine(
+    id: String,
+    pagine: Vec<u32>,
+    x_mm: f32,
+    y_mm: f32,
+    larghezza_mm: f32,
+    altezza_mm: f32,
+    destinazione: String,
+    stato: State<StatoApp>,
+) -> Result<(), String> {
+    let path = percorso(&stato, &id)?;
+    pdfa_core::pagine::ritaglia(&path, std::path::Path::new(&destinazione), &pagine, x_mm, y_mm, larghezza_mm, altezza_mm)
+        .map_err(|e| e.to_string())
+}
+
+/// Inserisce le pagine di `altro` (percorso) nel documento prima della posizione.
+#[tauri::command]
+pub fn inserisci_pagine(id: String, altro: String, posizione: u32, destinazione: String, stato: State<StatoApp>) -> Result<(), String> {
+    let path = percorso(&stato, &id)?;
+    pdfa_core::pagine::inserisci(&path, std::path::Path::new(&altro), posizione, std::path::Path::new(&destinazione))
+        .map_err(|e| e.to_string())
+}
+
+// --- Stampa unione / mail merge (Fase 36) -------------------------------------
+
+/// Genera un PDF per ogni record dei dati. Se `combina`, li unisce in un unico
+/// file `destinazione`; altrimenti li salva nella cartella `destinazione` come
+/// documento-1.pdf, documento-2.pdf, … Ritorna il numero di documenti generati.
+#[tauri::command]
+pub fn stampa_unione(modello: String, dati: String, combina: bool, destinazione: String) -> Result<usize, String> {
+    let pdfs = pdfa_core::modello::genera_unione(&modello, &dati).map_err(|e| e.to_string())?;
+    if combina {
+        // Scrive ogni PDF in un temporaneo e li unisce.
+        let dir = std::env::temp_dir().join(format!("pdfa_unione_{}", std::process::id()));
+        std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+        let mut temp = Vec::new();
+        for (i, bytes) in pdfs.iter().enumerate() {
+            let p = dir.join(format!("r{i}.pdf"));
+            std::fs::write(&p, bytes).map_err(|e| e.to_string())?;
+            temp.push(p);
+        }
+        pdfa_core::pagine::unisci(&temp, std::path::Path::new(&destinazione)).map_err(|e| e.to_string())?;
+        let _ = std::fs::remove_dir_all(&dir);
+    } else {
+        for (i, bytes) in pdfs.iter().enumerate() {
+            let p = std::path::Path::new(&destinazione).join(format!("documento-{}.pdf", i + 1));
+            std::fs::write(&p, bytes).map_err(|e| e.to_string())?;
+        }
+    }
+    Ok(pdfs.len())
+}
+
+// --- AI sul documento (Fase 37) -----------------------------------------------
+
+/// Recupera testo del documento (troncato) e la configurazione AI.
+fn testo_e_ai(app: &tauri::AppHandle, stato: &State<StatoApp>, id: &str) -> Result<(String, String, String), String> {
+    let i = crate::ia::carica(app);
+    let chiave = i.anthropic_api_key.filter(|k| !k.trim().is_empty())
+        .ok_or("Chiave API Anthropic non impostata (vedi impostazioni AI)")?;
+    let path = percorso(stato, id)?;
+    let mut testo = pdfa_core::estrazione::esporta(&path, pdfa_core::estrazione::Formato::Testo).map_err(|e| e.to_string())?;
+    // Limita la lunghezza per contenere i token.
+    const MAX: usize = 48_000;
+    if testo.len() > MAX {
+        testo.truncate(MAX);
+        testo.push_str("\n…[testo troncato]");
+    }
+    if testo.trim().is_empty() {
+        return Err("Nessun testo estraibile dal documento (forse è scansionato: usa l'OCR).".into());
+    }
+    Ok((testo, chiave, i.modello))
+}
+
+#[tauri::command]
+pub async fn ai_riassumi(app: tauri::AppHandle, id: String, stato: State<'_, StatoApp>) -> Result<String, String> {
+    let (testo, chiave, modello) = testo_e_ai(&app, &stato, &id)?;
+    let sistema = "Sei un assistente che riassume documenti in italiano in modo chiaro e strutturato (punti chiave).";
+    crate::ia::chiedi(&modello, &chiave, sistema, &format!("Riassumi questo documento:\n\n{testo}")).await
+}
+
+#[tauri::command]
+pub async fn ai_domanda(app: tauri::AppHandle, id: String, domanda: String, stato: State<'_, StatoApp>) -> Result<String, String> {
+    let (testo, chiave, modello) = testo_e_ai(&app, &stato, &id)?;
+    let sistema = "Rispondi in italiano basandoti SOLO sul contenuto del documento fornito. Se l'informazione non c'è, dillo.";
+    crate::ia::chiedi(&modello, &chiave, sistema, &format!("Documento:\n\n{testo}\n\nDomanda: {domanda}")).await
+}
+
+#[tauri::command]
+pub async fn ai_traduci(app: tauri::AppHandle, id: String, lingua: String, stato: State<'_, StatoApp>) -> Result<String, String> {
+    let (testo, chiave, modello) = testo_e_ai(&app, &stato, &id)?;
+    let sistema = "Sei un traduttore professionale. Traduci fedelmente mantenendo la struttura dei paragrafi.";
+    crate::ia::chiedi(&modello, &chiave, sistema, &format!("Traduci in {lingua} il seguente testo:\n\n{testo}")).await
+}
+
+// --- Annotazioni (Fase 38) ----------------------------------------------------
+
+#[derive(serde::Deserialize)]
+pub struct AnnotInput {
+    pub tipo: String, // "evidenzia" | "nota" | "testo"
+    pub pagina: u16,
+    pub x_mm: f32,
+    pub y_mm: f32,
+    pub larghezza_mm: Option<f32>,
+    pub altezza_mm: Option<f32>,
+    pub contenuto: Option<String>,
+    pub dim_pt: Option<f32>,
+    pub colore: Option<String>,
+}
+
+#[tauri::command]
+pub fn annota(id: String, annotazioni: Vec<AnnotInput>, destinazione: String, stato: State<StatoApp>) -> Result<usize, String> {
+    use pdfa_core::annotazioni::{Annot, Colore};
+    let col = |s: &Option<String>, def: Colore| {
+        let c = colore_da_hex(s);
+        if s.is_some() { Colore { r: c.r, g: c.g, b: c.b } } else { def }
+    };
+    let path = percorso(&stato, &id)?;
+    let mut lista = Vec::new();
+    for a in &annotazioni {
+        match a.tipo.as_str() {
+            "nota" => lista.push(Annot::Nota {
+                pagina: a.pagina, x_mm: a.x_mm, y_mm: a.y_mm,
+                contenuto: a.contenuto.clone().unwrap_or_default(),
+                colore: col(&a.colore, Colore { r: 255, g: 209, b: 0 }),
+            }),
+            "testo" => lista.push(Annot::Testo {
+                pagina: a.pagina, x_mm: a.x_mm, y_mm: a.y_mm,
+                larghezza_mm: a.larghezza_mm.unwrap_or(50.0), altezza_mm: a.altezza_mm.unwrap_or(12.0),
+                contenuto: a.contenuto.clone().unwrap_or_default(),
+                dim_pt: a.dim_pt.unwrap_or(11.0),
+                colore: col(&a.colore, Colore { r: 0, g: 0, b: 0 }),
+            }),
+            _ => lista.push(Annot::Evidenzia {
+                pagina: a.pagina, x_mm: a.x_mm, y_mm: a.y_mm,
+                larghezza_mm: a.larghezza_mm.unwrap_or(40.0), altezza_mm: a.altezza_mm.unwrap_or(6.0),
+                colore: col(&a.colore, Colore { r: 255, g: 235, b: 60 }),
+            }),
+        }
+    }
+    pdfa_core::annotazioni::applica(&path, std::path::Path::new(&destinazione), &lista).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn riepilogo_annotazioni(id: String, stato: State<StatoApp>) -> Result<Vec<pdfa_core::annotazioni::VoceRiepilogo>, String> {
+    let path = percorso(&stato, &id)?;
+    pdfa_core::annotazioni::riepilogo(&path).map_err(|e| e.to_string())
+}
+
 // --- Campi modulo editabili (Fase 26) -----------------------------------------
 
 /// Un nuovo campo di testo da inserire (dall'editor). Campi annidati snake_case.

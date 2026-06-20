@@ -3,11 +3,14 @@
   // (modello e dati a schede), a destra l'anteprima HTML renderizzata. Il PDF si
   // genera con lo stesso renderer dei report.
   import { schede } from "../lib/schede.svelte.js";
-  import { modelloEsempio, anteprimaModello, generaDaModello } from "../lib/api.js";
+  import { modelloEsempio, anteprimaModello, generaDaModello, stampaUnione } from "../lib/api.js";
 
   let modello = $state("");
   let dati = $state("");
-  let tab = $state("modello"); // "modello" | "dati"
+  let tab = $state("modello"); // "modello" | "dati" | "unione"
+  let datiUnione = $state('[\n  { "nome": "Anna" },\n  { "nome": "Luca" }\n]');
+  let combina = $state(true);
+  let unioneEsito = $state(null);
   let htmlAnteprima = $state("");
   let errore = $state(null);
   let esito = $state(null);
@@ -58,6 +61,16 @@
   function apriGenerato() {
     if (esito?.ok) schede.apri(esito.dest);
   }
+
+  async function generaUnione() {
+    unioneEsito = null;
+    try {
+      const r = await stampaUnione(modello, datiUnione, combina);
+      if (r) unioneEsito = { ok: true, ...r };
+    } catch (e) {
+      unioneEsito = { ok: false, msg: String(e) };
+    }
+  }
 </script>
 
 <div class="creatore">
@@ -65,21 +78,34 @@
     <div class="tabs">
       <button class:on={tab === "modello"} onclick={() => (tab = "modello")}>Modello (HTML)</button>
       <button class:on={tab === "dati"} onclick={() => (tab = "dati")}>Dati (JSON)</button>
+      <button class:on={tab === "unione"} onclick={() => (tab = "unione")}>Unione</button>
     </div>
     {#if tab === "modello"}
       <textarea bind:value={modello} spellcheck="false" placeholder={"HTML del modello con {{variabili}} e {{#each elenco}}…{{/each}}"}></textarea>
-    {:else}
+    {:else if tab === "dati"}
       <textarea bind:value={dati} spellcheck="false" placeholder={'{ "chiave": "valore" }'}></textarea>
+    {:else}
+      <textarea bind:value={datiUnione} spellcheck="false" placeholder={'[ { "nome": "..." }, { "nome": "..." } ]'}></textarea>
     {/if}
     {#if errore}<p class="err">{errore}</p>{/if}
     <div class="azioni">
-      <button class="genera" onclick={genera} disabled={generando}>
-        {generando ? "Generazione…" : "Genera PDF…"}
-      </button>
-      {#if esito?.ok}
-        <span class="ok">Salvato. <button class="link" onclick={apriGenerato}>Apri</button></span>
-      {:else if esito && !esito.ok}
-        <span class="errInline">{esito.msg}</span>
+      {#if tab === "unione"}
+        <label class="cmb"><input type="checkbox" bind:checked={combina} /> Unico file</label>
+        <button class="genera" onclick={generaUnione}>Genera unione…</button>
+        {#if unioneEsito?.ok}
+          <span class="ok">{unioneEsito.n} documenti {unioneEsito.combina ? "uniti" : "salvati"}.{#if unioneEsito.combina} <button class="link" onclick={() => schede.apri(unioneEsito.dest)}>Apri</button>{/if}</span>
+        {:else if unioneEsito && !unioneEsito.ok}
+          <span class="errInline">{unioneEsito.msg}</span>
+        {/if}
+      {:else}
+        <button class="genera" onclick={genera} disabled={generando}>
+          {generando ? "Generazione…" : "Genera PDF…"}
+        </button>
+        {#if esito?.ok}
+          <span class="ok">Salvato. <button class="link" onclick={apriGenerato}>Apri</button></span>
+        {:else if esito && !esito.ok}
+          <span class="errInline">{esito.msg}</span>
+        {/if}
       {/if}
     </div>
   </div>
@@ -155,6 +181,13 @@
   .genera:disabled {
     opacity: 0.5;
     cursor: default;
+  }
+  .cmb {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--testo-soft);
   }
   .ok {
     color: #7ad08f;

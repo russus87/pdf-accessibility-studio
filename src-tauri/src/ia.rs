@@ -64,6 +64,40 @@ pub fn salva(app: &tauri::AppHandle, imp: &Impostazioni) -> Result<(), String> {
     std::fs::write(p, dati).map_err(|e| e.to_string())
 }
 
+/// Invia a Claude un prompt testuale (sistema + messaggio utente) e ritorna la
+/// risposta. Usato per riassunto, domande&risposte e traduzione sul documento.
+pub async fn chiedi(modello: &str, chiave: &str, sistema: &str, utente: &str) -> Result<String, String> {
+    let corpo = serde_json::json!({
+        "model": modello,
+        "max_tokens": 2048,
+        "system": sistema,
+        "messages": [{ "role": "user", "content": utente }]
+    });
+
+    let client = reqwest::Client::new();
+    let resp = client
+        .post("https://api.anthropic.com/v1/messages")
+        .header("x-api-key", chiave)
+        .header("anthropic-version", "2023-06-01")
+        .header("content-type", "application/json")
+        .json(&corpo)
+        .send()
+        .await
+        .map_err(|e| format!("rete: {e}"))?;
+
+    let stato = resp.status();
+    let val: serde_json::Value = resp.json().await.map_err(|e| format!("risposta non valida: {e}"))?;
+    if !stato.is_success() {
+        let msg = val["error"]["message"].as_str().unwrap_or("errore sconosciuto");
+        return Err(format!("API Claude {stato}: {msg}"));
+    }
+    let testo = val["content"][0]["text"].as_str().unwrap_or("").trim().to_string();
+    if testo.is_empty() {
+        return Err("Risposta vuota dall'AI.".into());
+    }
+    Ok(testo)
+}
+
 /// Chiede a Claude un testo alternativo per l'immagine PNG fornita.
 pub async fn alt_da_immagine(modello: &str, chiave: &str, png: Vec<u8>) -> Result<String, String> {
     let b64 = STANDARD.encode(&png);

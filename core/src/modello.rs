@@ -39,6 +39,34 @@ pub fn genera_pdf(modello: &str, dati_json: &str) -> Risultato<Vec<u8>> {
     html_a_pdf(&html)
 }
 
+/// Stampa unione: renderizza il modello per ogni record di un array JSON e
+/// ritorna un PDF (byte) per record. Il chiamante decide se salvarli separati o
+/// unirli in un unico file.
+pub fn genera_unione(modello: &str, dati_array_json: &str) -> Risultato<Vec<Vec<u8>>> {
+    let dati: serde_json::Value =
+        serde_json::from_str(dati_array_json).map_err(|e| Errore::Io(format!("dati JSON non validi: {e}")))?;
+    let record = match dati {
+        serde_json::Value::Array(a) => a,
+        // Un singolo oggetto viene trattato come elenco di un elemento.
+        altro => vec![altro],
+    };
+    if record.is_empty() {
+        return Err(Errore::Io("nessun record nei dati".into()));
+    }
+
+    let mut hb = Handlebars::new();
+    hb.set_strict_mode(false);
+
+    let mut out = Vec::with_capacity(record.len());
+    for (i, rec) in record.iter().enumerate() {
+        let html = hb
+            .render_template(modello, rec)
+            .map_err(|e| Errore::Io(format!("record {}: {e}", i + 1)))?;
+        out.push(html_a_pdf(&html)?);
+    }
+    Ok(out)
+}
+
 /// Converte una stringa HTML completa in PDF con il renderer di printpdf.
 pub fn html_a_pdf(html: &str) -> Risultato<Vec<u8>> {
     let immagini = BTreeMap::new();

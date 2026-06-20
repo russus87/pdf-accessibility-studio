@@ -8,6 +8,7 @@
 //! Le fasi successive aggiungeranno: validazione accessibilita', sintesi
 //! vocale (ordine logico dei tag), confronto (testo/pixel/tag), export tag.
 
+pub mod annotazioni;
 pub mod artifact;
 pub mod campi;
 pub mod cifratura;
