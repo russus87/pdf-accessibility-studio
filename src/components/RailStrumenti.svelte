@@ -9,6 +9,18 @@
 
 <nav class="rail" aria-label="Strumenti">
   <div class="gruppo">
+    <span class="titolo">Crea</span>
+    <button class:on={schede.pannello === "crea"}
+      onclick={() => schede.mostraPannello("crea")}>
+      <span class="icona" aria-hidden="true">📝</span><span>Nuovo da modello</span>
+    </button>
+    <button class:on={schede.pannello === "editor"} disabled={!s}
+      onclick={() => schede.mostraPannello("editor")}>
+      <span class="icona" aria-hidden="true">✏️</span><span>Editor PDF</span>
+    </button>
+  </div>
+
+  <div class="gruppo">
     <span class="titolo">Documento</span>
     <button class:on={schede.anteprime} disabled={!s}
       onclick={() => (schede.anteprime = !schede.anteprime)}>

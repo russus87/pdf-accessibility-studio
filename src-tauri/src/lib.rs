@@ -3,6 +3,7 @@
 
 mod comandi;
 mod docling;
+mod firme;
 mod ia;
 mod piper;
 mod stato;
@@ -77,6 +78,15 @@ pub fn run() {
             comandi::applica_tabella,
             comandi::leggi_form,
             comandi::applica_form,
+            comandi::modello_esempio,
+            comandi::anteprima_modello,
+            comandi::genera_da_modello,
+            comandi::sovrapponi,
+            comandi::aggiungi_campi,
+            comandi::salva_editor,
+            firme::firme_elenco,
+            firme::firma_salva,
+            firme::firma_elimina,
             comandi::riordina,
             comandi::stato_ai,
             comandi::imposta_ai,

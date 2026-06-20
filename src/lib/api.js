@@ -368,6 +368,72 @@ export async function applicaTabella(id, celle) {
   return { dest: destinazione, n };
 }
 
+// --- Creazione PDF da modello HTML + dati JSON (Fase 22) ---
+/** Modello e dati JSON di esempio: { modello, dati }. */
+export function modelloEsempio() {
+  return invoke("modello_esempio");
+}
+/** Renderizza il modello con i dati e ritorna l'HTML finale (anteprima). */
+export function anteprimaModello(modello, dati) {
+  return invoke("anteprima_modello", { modello, dati });
+}
+/** Genera il PDF dal modello + dati e lo salva; ritorna il percorso o null. */
+export async function generaDaModello(modello, dati) {
+  const destinazione = await save({
+    defaultPath: "documento.pdf",
+    filters: [{ name: "PDF", extensions: ["pdf"] }],
+  });
+  if (!destinazione) return null;
+  await invoke("genera_da_modello", { modello, dati, destinazione });
+  return destinazione;
+}
+
+// --- Sovrapposizione: testo / immagini / filigrana (Fase 24) ---
+/** Applica elementi (testo/immagine) e filigrana al PDF e salva una copia.
+ *  `elementi` = [{ tipo:"testo"|"immagine", pagina, x_mm, y_mm, ... }] con campi
+ *  in snake_case; `filigrana` = { tipo, ... } o null. Ritorna { dest, n } o null. */
+export async function sovrapponi(id, elementi, filigrana) {
+  const destinazione = await save({
+    defaultPath: "modificato.pdf",
+    filters: [{ name: "PDF", extensions: ["pdf"] }],
+  });
+  if (!destinazione) return null;
+  const n = await invoke("sovrapponi", { id, elementi, filigrana: filigrana ?? null, destinazione });
+  return { dest: destinazione, n };
+}
+
+// --- Libreria firme (Fase 25) ---
+/** Elenco firme salvate: [{ nome, dati_base64 }]. */
+export function firmeElenco() {
+  return invoke("firme_elenco");
+}
+/** Salva una firma (PNG in base64). */
+export function firmaSalva(nome, datiBase64) {
+  return invoke("firma_salva", { nome, datiBase64 });
+}
+/** Elimina una firma per nome. */
+export function firmaElimina(nome) {
+  return invoke("firma_elimina", { nome });
+}
+
+// --- Editor visuale: salvataggio combinato (overlay + campi) (Fase 23/26) ---
+/** Applica elementi+filigrana+campi e salva un unico PDF. Ritorna { dest, n }. */
+export async function salvaEditor(id, elementi, filigrana, campi) {
+  const destinazione = await save({
+    defaultPath: "modificato.pdf",
+    filters: [{ name: "PDF", extensions: ["pdf"] }],
+  });
+  if (!destinazione) return null;
+  const n = await invoke("salva_editor", {
+    id,
+    elementi,
+    filigrana: filigrana ?? null,
+    campi,
+    destinazione,
+  });
+  return { dest: destinazione, n };
+}
+
 // --- Form accessibili (AcroForm) ---
 /** Legge i campi del modulo: [{ riferimento, nome, tipo, tooltip, pagina }]. */
 export function leggiForm(id) {

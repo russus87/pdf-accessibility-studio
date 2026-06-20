@@ -208,6 +208,56 @@ Alt, cambio ruolo e riordino su un PDF taggato costruito al volo.
 - ✅ Test estesi (`doclang::test::mappa_ruoli_estesi`).
 - ⏳ Restano: estrazione MCID con font CID complessi; tagging campi modulo nello StructTree.
 
+## Fase 22 — Creazione PDF da modello (HTML + variabili + flussi JSON) ✅
+
+- ✅ `core/modello.rs` (crate **handlebars**): modello HTML con `{{variabili}}`,
+  flussi `{{#each}}` e condizioni `{{#if}}` alimentati da dati JSON → HTML →
+  PDF via `printpdf::from_html`. Include modello e dati di esempio.
+- ✅ Comandi `modello_esempio` / `anteprima_modello` / `genera_da_modello` + wrapper.
+- ✅ Nuova vista **Creatore** (`Creatore.svelte`): editor a schede (Modello/Dati),
+  anteprima HTML live in iframe, "Genera PDF…". Pulsante *Crea → Nuovo da modello*
+  nel rail (sempre attivo, anche senza documento aperto).
+- ✅ Test (`core/tests/modello.rs`): variabili+flussi+if, JSON invalido → errore,
+  generazione PDF dall'esempio (header %PDF).
+
+## Fase 24 — Motore di overlay: testo / immagini / filigrana ✅ (core+comando)
+
+- ✅ `core/sovrapposizione.rs`: aggiunge a un PDF esistente, via **Pdfium**, oggetti
+  pagina nativi — **testo** (font, colore, opacità, rotazione), **immagini** (PNG con
+  opacità), **filigrana** (testo o immagine, centrata, su tutte le pagine). Coordinate
+  in **mm con origine in alto a sinistra** (come i righelli), convertite nel sistema PDF.
+- ✅ Comando `sovrapponi` (+ wrapper) con elementi e filigrana, immagini in base64,
+  colore `#rrggbb`.
+- ✅ Test a runtime (`core/tests/sovrapposizione.rs`, usa libpdfium): filigrana "RISERVATO"
+  + testo → entrambi estraibili dal PDF salvato.
+## Fase 23 — Editor visuale con righelli mm ✅
+
+- ✅ Nuova vista **Editor** (`Editor.svelte`): canvas della pagina (render Pdfium)
+  con **righelli orizzontale e verticale in millimetri**, lettura coordinate live
+  sotto il puntatore, navigazione pagine. Posizionamento **a clic** degli elementi
+  (origine in alto a sinistra, coerente col core). Pulsante *Crea → Editor PDF* nel rail.
+- ✅ Strumenti: Testo, Immagine, Firma, Campo + sezione Filigrana. Lista elementi
+  con rimozione e marcatori sovrapposti alla pagina. Salvataggio unico via `salva_editor`.
+
+## Fase 25 — Libreria firme ✅
+
+- ✅ `src-tauri/firme.rs`: salva le firme come PNG nella cartella dati dell'app;
+  comandi `firme_elenco` / `firma_salva` / `firma_elimina`. Nell'editor: galleria
+  firme con anteprima, import di una nuova firma, selezione e applicazione a clic
+  (come immagine). Le firme restano disponibili tra le sessioni.
+
+## Fase 26 — Campi modulo editabili ✅
+
+- ✅ `core/campi.rs`: crea campi di testo AcroForm (widget) posizionati in mm,
+  con tooltip `/TU`, `NeedAppearances` e font di default (DR/Helv) così i lettori
+  ne disegnano l'aspetto. Comando `aggiungi_campi`; nell'editor strumento "Campo".
+- ✅ Test (`core/tests/campi.rs`): crea un campo testo, riletto da `form::leggi`
+  (Fase 20) con nome/tipo/tooltip/pagina corretti.
+- ⏳ Rifinitura futura: checkbox/scelte (richiedono appearance streams /AP).
+
+> Salvataggio combinato editor (`salva_editor`): applica overlay (Fase 24) e poi i
+> campi (Fase 26) producendo un unico PDF.
+
 ## Idee future ⏳
 
 - ⏳ Anteprime con drag&drop per riordino, miniature nel pannello Pagine

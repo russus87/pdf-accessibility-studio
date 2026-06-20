@@ -9,6 +9,7 @@
 //! vocale (ordine logico dei tag), confronto (testo/pixel/tag), export tag.
 
 pub mod artifact;
+pub mod campi;
 pub mod confronto;
 pub mod contrasto;
 pub mod correzione;
@@ -20,11 +21,13 @@ pub mod form;
 pub mod geometria;
 pub mod lettura;
 pub mod metadati;
+pub mod modello;
 pub mod ocr;
 pub mod pagine;
 pub mod pdfium;
 pub mod ricerca;
 pub mod segnalibri;
+pub mod sovrapposizione;
 pub mod struttura;
 pub mod tabelle;
 pub mod taggatura;

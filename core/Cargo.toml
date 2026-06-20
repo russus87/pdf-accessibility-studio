@@ -24,6 +24,9 @@ printpdf = "0.9"
 # Export dei tag in JSON e codifica base64 delle immagini di diff.
 serde_json = "1"
 base64 = "0.22"
+# Motore di template per generare PDF da modello HTML con variabili, flussi
+# ({{#each}}) e condizioni ({{#if}}) alimentati da dati JSON.
+handlebars = "6"
 # Parsing del font incorporato (glifi, larghezze, cmap) per generare il PDF
 # taggato con un layer di testo invisibile e ToUnicode estraibile.
 ttf-parser = "0.25"

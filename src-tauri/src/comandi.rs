@@ -594,6 +594,303 @@ pub fn marca_artifact(
         .map_err(|e| e.to_string())
 }
 
+// --- Sovrapposizione: testo / immagini / filigrana (Fase 24) ------------------
+
+/// Converte "#rrggbb" in Colore (default nero).
+fn colore_da_hex(s: &Option<String>) -> pdfa_core::sovrapposizione::Colore {
+    let def = pdfa_core::sovrapposizione::Colore::default();
+    let Some(h) = s.as_ref().map(|x| x.trim_start_matches('#')) else { return def };
+    if h.len() != 6 {
+        return def;
+    }
+    let p = |i: usize| u8::from_str_radix(&h[i..i + 2], 16).ok();
+    match (p(0), p(2), p(4)) {
+        (Some(r), Some(g), Some(b)) => pdfa_core::sovrapposizione::Colore { r, g, b },
+        _ => def,
+    }
+}
+
+fn png_da_base64(s: &Option<String>) -> Result<Vec<u8>, String> {
+    let b64 = s.as_ref().ok_or("immagine mancante")?;
+    STANDARD.decode(b64).map_err(|e| format!("immagine non valida: {e}"))
+}
+
+/// Un elemento da sovrapporre (dal pannello editor). I campi annidati usano
+/// snake_case perché Tauri non converte camelCase dentro le struct.
+#[derive(serde::Deserialize)]
+pub struct ElementoInput {
+    pub tipo: String, // "testo" | "immagine"
+    pub pagina: u16,
+    pub x_mm: f32,
+    pub y_mm: f32,
+    pub opacita: Option<u8>,
+    pub rotazione: Option<f32>,
+    // testo
+    pub testo: Option<String>,
+    pub dim_pt: Option<f32>,
+    pub colore: Option<String>,
+    // immagine
+    pub png_base64: Option<String>,
+    pub larghezza_mm: Option<f32>,
+    pub altezza_mm: Option<f32>,
+}
+
+/// Filigrana applicata a tutte le pagine.
+#[derive(serde::Deserialize)]
+pub struct FiligranaInput {
+    pub tipo: String, // "testo" | "immagine"
+    pub opacita: Option<u8>,
+    pub rotazione: Option<f32>,
+    pub testo: Option<String>,
+    pub dim_pt: Option<f32>,
+    pub colore: Option<String>,
+    pub png_base64: Option<String>,
+    pub larghezza_mm: Option<f32>,
+    pub altezza_mm: Option<f32>,
+}
+
+/// Applica gli elementi e l'eventuale filigrana al PDF e salva una copia.
+#[tauri::command]
+pub fn sovrapponi(
+    id: String,
+    elementi: Vec<ElementoInput>,
+    filigrana: Option<FiligranaInput>,
+    destinazione: String,
+    stato: State<StatoApp>,
+) -> Result<usize, String> {
+    use pdfa_core::sovrapposizione::{Elemento, Filigrana};
+    let path = percorso(&stato, &id)?;
+
+    let mut els = Vec::new();
+    for e in &elementi {
+        match e.tipo.as_str() {
+            "immagine" => els.push(Elemento::Immagine {
+                pagina: e.pagina,
+                x_mm: e.x_mm,
+                y_mm: e.y_mm,
+                larghezza_mm: e.larghezza_mm.unwrap_or(40.0),
+                altezza_mm: e.altezza_mm.unwrap_or(20.0),
+                png: png_da_base64(&e.png_base64)?,
+                opacita: e.opacita.unwrap_or(255),
+                rotazione: e.rotazione.unwrap_or(0.0),
+            }),
+            _ => els.push(Elemento::Testo {
+                pagina: e.pagina,
+                x_mm: e.x_mm,
+                y_mm: e.y_mm,
+                testo: e.testo.clone().unwrap_or_default(),
+                dim_pt: e.dim_pt.unwrap_or(12.0),
+                colore: colore_da_hex(&e.colore),
+                opacita: e.opacita.unwrap_or(255),
+                rotazione: e.rotazione.unwrap_or(0.0),
+            }),
+        }
+    }
+
+    let fil = match &filigrana {
+        Some(f) if f.tipo == "immagine" => Some(Filigrana::Immagine {
+            png: png_da_base64(&f.png_base64)?,
+            larghezza_mm: f.larghezza_mm.unwrap_or(80.0),
+            altezza_mm: f.altezza_mm.unwrap_or(80.0),
+            opacita: f.opacita.unwrap_or(60),
+            rotazione: f.rotazione.unwrap_or(0.0),
+        }),
+        Some(f) => Some(Filigrana::Testo {
+            testo: f.testo.clone().unwrap_or_default(),
+            dim_pt: f.dim_pt.unwrap_or(60.0),
+            colore: colore_da_hex(&f.colore),
+            opacita: f.opacita.unwrap_or(40),
+            rotazione: f.rotazione.unwrap_or(45.0),
+        }),
+        None => None,
+    };
+
+    pdfa_core::sovrapposizione::applica(&path, std::path::Path::new(&destinazione), &els, fil.as_ref())
+        .map_err(|e| e.to_string())
+}
+
+/// Costruisce gli elementi di overlay dagli input della UI.
+fn costruisci_elementi(elementi: &[ElementoInput]) -> Result<Vec<pdfa_core::sovrapposizione::Elemento>, String> {
+    use pdfa_core::sovrapposizione::Elemento;
+    let mut out = Vec::new();
+    for e in elementi {
+        match e.tipo.as_str() {
+            "immagine" => out.push(Elemento::Immagine {
+                pagina: e.pagina,
+                x_mm: e.x_mm,
+                y_mm: e.y_mm,
+                larghezza_mm: e.larghezza_mm.unwrap_or(40.0),
+                altezza_mm: e.altezza_mm.unwrap_or(20.0),
+                png: png_da_base64(&e.png_base64)?,
+                opacita: e.opacita.unwrap_or(255),
+                rotazione: e.rotazione.unwrap_or(0.0),
+            }),
+            _ => out.push(Elemento::Testo {
+                pagina: e.pagina,
+                x_mm: e.x_mm,
+                y_mm: e.y_mm,
+                testo: e.testo.clone().unwrap_or_default(),
+                dim_pt: e.dim_pt.unwrap_or(12.0),
+                colore: colore_da_hex(&e.colore),
+                opacita: e.opacita.unwrap_or(255),
+                rotazione: e.rotazione.unwrap_or(0.0),
+            }),
+        }
+    }
+    Ok(out)
+}
+
+fn costruisci_filigrana(f: &Option<FiligranaInput>) -> Result<Option<pdfa_core::sovrapposizione::Filigrana>, String> {
+    use pdfa_core::sovrapposizione::Filigrana;
+    Ok(match f {
+        Some(f) if f.tipo == "immagine" => Some(Filigrana::Immagine {
+            png: png_da_base64(&f.png_base64)?,
+            larghezza_mm: f.larghezza_mm.unwrap_or(80.0),
+            altezza_mm: f.altezza_mm.unwrap_or(80.0),
+            opacita: f.opacita.unwrap_or(60),
+            rotazione: f.rotazione.unwrap_or(0.0),
+        }),
+        Some(f) => Some(Filigrana::Testo {
+            testo: f.testo.clone().unwrap_or_default(),
+            dim_pt: f.dim_pt.unwrap_or(60.0),
+            colore: colore_da_hex(&f.colore),
+            opacita: f.opacita.unwrap_or(40),
+            rotazione: f.rotazione.unwrap_or(45.0),
+        }),
+        None => None,
+    })
+}
+
+/// Salvataggio combinato dell'editor: applica overlay (testo/immagini/filigrana)
+/// e campi modulo in un'unica passata, producendo un solo PDF. Ritorna il numero
+/// totale di elementi aggiunti.
+#[tauri::command]
+pub fn salva_editor(
+    id: String,
+    elementi: Vec<ElementoInput>,
+    filigrana: Option<FiligranaInput>,
+    campi: Vec<NuovoCampoInput>,
+    destinazione: String,
+    stato: State<StatoApp>,
+) -> Result<usize, String> {
+    let path = percorso(&stato, &id)?;
+    let dest = std::path::PathBuf::from(&destinazione);
+
+    let els = costruisci_elementi(&elementi)?;
+    let fil = costruisci_filigrana(&filigrana)?;
+    let ha_overlay = !els.is_empty() || fil.is_some();
+    let ha_campi = !campi.is_empty();
+
+    let mut totale = 0;
+
+    // Sorgente per il passaggio "campi": l'output dell'overlay se presente.
+    let sorgente_campi = if ha_overlay {
+        let tmp = std::env::temp_dir().join(format!("pdfa_editor_{}.pdf", std::process::id()));
+        totale += pdfa_core::sovrapposizione::applica(&path, &tmp, &els, fil.as_ref())
+            .map_err(|e| e.to_string())?;
+        tmp
+    } else {
+        path.clone()
+    };
+
+    if ha_campi {
+        let nuovi: Vec<pdfa_core::campi::NuovoCampo> = campi
+            .into_iter()
+            .map(|c| pdfa_core::campi::NuovoCampo {
+                pagina: c.pagina,
+                x_mm: c.x_mm,
+                y_mm: c.y_mm,
+                larghezza_mm: c.larghezza_mm,
+                altezza_mm: c.altezza_mm,
+                nome: c.nome,
+                tooltip: c.tooltip.unwrap_or_default(),
+                valore: c.valore.unwrap_or_default(),
+            })
+            .collect();
+        totale += pdfa_core::campi::aggiungi(&sorgente_campi, &dest, &nuovi).map_err(|e| e.to_string())?;
+    } else if ha_overlay {
+        // Solo overlay: sposta il temporaneo sulla destinazione.
+        std::fs::copy(&sorgente_campi, &dest).map_err(|e| e.to_string())?;
+        let _ = std::fs::remove_file(&sorgente_campi);
+    } else {
+        // Niente da fare: copia l'originale.
+        std::fs::copy(&path, &dest).map_err(|e| e.to_string())?;
+    }
+
+    Ok(totale)
+}
+
+// --- Campi modulo editabili (Fase 26) -----------------------------------------
+
+/// Un nuovo campo di testo da inserire (dall'editor). Campi annidati snake_case.
+#[derive(serde::Deserialize)]
+pub struct NuovoCampoInput {
+    pub pagina: u16,
+    pub x_mm: f32,
+    pub y_mm: f32,
+    pub larghezza_mm: f32,
+    pub altezza_mm: f32,
+    pub nome: String,
+    pub tooltip: Option<String>,
+    pub valore: Option<String>,
+}
+
+/// Aggiunge campi modulo editabili al PDF e salva una copia.
+#[tauri::command]
+pub fn aggiungi_campi(
+    id: String,
+    campi: Vec<NuovoCampoInput>,
+    destinazione: String,
+    stato: State<StatoApp>,
+) -> Result<usize, String> {
+    let path = percorso(&stato, &id)?;
+    let campi: Vec<pdfa_core::campi::NuovoCampo> = campi
+        .into_iter()
+        .map(|c| pdfa_core::campi::NuovoCampo {
+            pagina: c.pagina,
+            x_mm: c.x_mm,
+            y_mm: c.y_mm,
+            larghezza_mm: c.larghezza_mm,
+            altezza_mm: c.altezza_mm,
+            nome: c.nome,
+            tooltip: c.tooltip.unwrap_or_default(),
+            valore: c.valore.unwrap_or_default(),
+        })
+        .collect();
+    pdfa_core::campi::aggiungi(&path, std::path::Path::new(&destinazione), &campi)
+        .map_err(|e| e.to_string())
+}
+
+// --- Creazione PDF da modello HTML + dati JSON (Fase 22) ----------------------
+
+/// Modello e dati JSON di esempio per partire da zero nell'editor.
+#[derive(Serialize)]
+pub struct EsempioModello {
+    pub modello: String,
+    pub dati: String,
+}
+
+#[tauri::command]
+pub fn modello_esempio() -> EsempioModello {
+    EsempioModello {
+        modello: pdfa_core::modello::modello_esempio().to_string(),
+        dati: pdfa_core::modello::dati_esempio().to_string(),
+    }
+}
+
+/// Renderizza il modello con i dati e ritorna l'HTML finale (per l'anteprima).
+#[tauri::command]
+pub fn anteprima_modello(modello: String, dati: String) -> Result<String, String> {
+    pdfa_core::modello::render_html(&modello, &dati).map_err(|e| e.to_string())
+}
+
+/// Genera il PDF dal modello + dati e lo salva in `destinazione`.
+#[tauri::command]
+pub fn genera_da_modello(modello: String, dati: String, destinazione: String) -> Result<(), String> {
+    let pdf = pdfa_core::modello::genera_pdf(&modello, &dati).map_err(|e| e.to_string())?;
+    std::fs::write(&destinazione, pdf).map_err(|e| e.to_string())
+}
+
 /// Legge i campi del modulo (AcroForm) del PDF.
 #[tauri::command]
 pub fn leggi_form(id: String, stato: State<StatoApp>) -> Result<Vec<pdfa_core::form::CampoModulo>, String> {

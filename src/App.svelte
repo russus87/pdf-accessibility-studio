@@ -68,6 +68,8 @@
   import PannelloMetadati from "./components/PannelloMetadati.svelte";
   import PannelloModuli from "./components/PannelloModuli.svelte";
   import Confronto from "./components/Confronto.svelte";
+  import Creatore from "./components/Creatore.svelte";
+  import Editor from "./components/Editor.svelte";
 
   const lateralePannello = $derived(
     ["valida", "indice", "tag", "autotag", "leggi", "correggi", "pagine", "cerca", "metadati", "moduli"].includes(schede.pannello) ? schede.pannello : null,
@@ -90,6 +92,10 @@
 
     {#if schede.pannello === "confronta"}
       <Confronto />
+    {:else if schede.pannello === "crea"}
+      <Creatore />
+    {:else if schede.pannello === "editor"}
+      <Editor />
     {:else}
       <div class="area">
         {#if schede.anteprime && schede.schedaAttiva}
