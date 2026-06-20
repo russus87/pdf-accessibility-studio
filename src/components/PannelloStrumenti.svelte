@@ -5,6 +5,7 @@
   import {
     pdfProtetto, proteggiPdf, sbloccaPdf,
     esportaImmagini, creaPdfDaImmagini, numeraPagine,
+    ottimizza, esportaContenuto, batch,
   } from "../lib/api.js";
 
   const s = $derived(schede.schedaAttiva);
@@ -28,6 +29,12 @@
 
   // Numerazione.
   let num = $state({ testo: "Pagina {n} di {tot}", dimPt: 11, colore: "#444444", margineMm: 12, ancora: "basso-centro", inizio: 1 });
+
+  // Batch.
+  let batchOp = $state("ottimizza");
+  let batchTesto = $state("RISERVATO");
+  let batchRis = $state([]);
+  let batchInCorso = $state(false);
 
   const ancore = [
     ["alto-sinistra", "Alto sx"], ["alto-centro", "Alto centro"], ["alto-destra", "Alto dx"],
@@ -71,6 +78,24 @@
     const r = await azione(() => numeraPagine(s.id, num));
     if (r) esito = { ok: true, dest: r.dest };
   }
+  async function ottim() {
+    const r = await azione(() => ottimizza(s.id));
+    if (r) {
+      const perc = r.prima ? Math.round((1 - r.dopo / r.prima) * 100) : 0;
+      esito = { ok: true, dest: r.dest, msg: `Da ${Math.round(r.prima / 1024)} KB a ${Math.round(r.dopo / 1024)} KB (−${perc}%).` };
+    }
+  }
+  async function estrai(formato) {
+    const ok = await azione(() => esportaContenuto(s.id, formato));
+    if (ok) esito = { ok: true, msg: `Esportato in ${formato.toUpperCase()}.` };
+  }
+  async function eseguiBatch() {
+    batchRis = [];
+    batchInCorso = true;
+    const r = await azione(() => batch(batchOp, batchTesto));
+    batchInCorso = false;
+    if (r) batchRis = r;
+  }
 </script>
 
 <div class="pannello">
@@ -81,7 +106,10 @@
     <div class="tabs">
       <button class:on={sezione === "protezione"} onclick={() => (sezione = "protezione")}>Protezione</button>
       <button class:on={sezione === "immagini"} onclick={() => (sezione = "immagini")}>Immagini</button>
-      <button class:on={sezione === "numerazione"} onclick={() => (sezione = "numerazione")}>Numerazione</button>
+      <button class:on={sezione === "numerazione"} onclick={() => (sezione = "numerazione")}>Numeri</button>
+      <button class:on={sezione === "ottimizza"} onclick={() => (sezione = "ottimizza")}>Ottimizza</button>
+      <button class:on={sezione === "estrai"} onclick={() => (sezione = "estrai")}>Estrai</button>
+      <button class:on={sezione === "batch"} onclick={() => (sezione = "batch")}>Batch</button>
     </div>
 
     {#if sezione === "protezione"}
@@ -128,6 +156,50 @@
         </div>
         <button class="vai" onclick={numera}>Applica e salva…</button>
       </div>
+
+    {:else if sezione === "ottimizza"}
+      <div class="sez">
+        <div class="cap">Riduci la dimensione del PDF</div>
+        <p class="hint">Rimuove gli oggetti inutilizzati e ricomprime gli stream.</p>
+        <button class="vai" onclick={ottim}>Ottimizza e salva…</button>
+      </div>
+
+    {:else if sezione === "estrai"}
+      <div class="sez">
+        <div class="cap">Estrai il contenuto</div>
+        <p class="hint">Usa l'ordine logico dei tag (titoli, paragrafi, liste).</p>
+        <div class="riga">
+          <button class="vai" onclick={() => estrai("txt")}>Testo</button>
+          <button class="vai" onclick={() => estrai("html")}>HTML</button>
+          <button class="vai" onclick={() => estrai("markdown")}>Markdown</button>
+        </div>
+      </div>
+
+    {:else if sezione === "batch"}
+      <div class="sez">
+        <div class="cap">Elaborazione di più file</div>
+        <label>Operazione
+          <select bind:value={batchOp}>
+            <option value="ottimizza">Ottimizza</option>
+            <option value="filigrana">Filigrana (testo)</option>
+            <option value="numerazione">Numerazione</option>
+            <option value="valida">Validazione (report HTML)</option>
+          </select>
+        </label>
+        {#if batchOp === "filigrana" || batchOp === "numerazione"}
+          <label>Testo<input type="text" bind:value={batchTesto} /></label>
+        {/if}
+        <button class="vai" onclick={eseguiBatch} disabled={batchInCorso}>
+          {batchInCorso ? "Elaborazione…" : "Scegli PDF e cartella, esegui…"}
+        </button>
+        {#if batchRis.length}
+          <div class="ris">
+            {#each batchRis as r}
+              <div class="rigaris" class:ko={!r.ok}>{r.ok ? "✓" : "✗"} {r.file.split(/[\\/]/).pop()} — {r.messaggio}</div>
+            {/each}
+          </div>
+        {/if}
+      </div>
     {/if}
 
     {#if esito?.ok}
@@ -163,4 +235,8 @@
   .errm { margin: 0 14px; color: var(--errore); font-size: 13px; }
   .link { background: none; border: none; color: var(--accento); text-decoration: underline; cursor: pointer; font-size: 13px; }
   .info { padding: 14px; color: var(--testo-soft); }
+  .hint { margin: 0; font-size: 12px; color: var(--testo-soft); font-style: italic; }
+  .ris { display: flex; flex-direction: column; gap: 3px; margin-top: 6px; }
+  .rigaris { font-size: 11px; color: #7ad08f; font-family: ui-monospace, monospace; }
+  .rigaris.ko { color: var(--errore); }
 </style>

@@ -289,6 +289,32 @@ Alt, cambio ruolo e riordino su un PDF taggato costruito al volo.
 > immagini, numerazione. Redazione integrata nell'Editor. Test: `core/tests/evolutive.rs`
 > (cifratura, conversione, intestazioni, redazione; i test Pdfium serializzati con mutex).
 
+## Fase 31 — Ottimizzazione/compressione ✅
+
+- ✅ `core/ottimizzazione.rs` (lopdf): `prune_objects` + `delete_zero_length_streams`
+  + `compress` + salvataggio con object/xref stream (livello 9). Ritorna byte prima/dopo.
+  Comando `ottimizza`; tab *Ottimizza* in Strumenti PDF.
+
+## Fase 32 — Estrazione testo / HTML / Markdown ✅
+
+- ✅ `core/estrazione.rs`: ricostruisce la struttura dall'ordine logico dei tag
+  (titoli→H1-6, liste→ul/li, paragrafi); fallback al testo per pagina se non taggato.
+  Comando `esporta_contenuto`; tab *Estrai* in Strumenti PDF. Test in `evolutive2.rs`.
+
+## Fase 33 — Elaborazione batch ✅
+
+- ✅ Comando `batch`: applica un'operazione a più file → cartella di output. Operazioni:
+  **ottimizza**, **filigrana**, **numerazione**, **validazione** (report HTML per file).
+  Tab *Batch* in Strumenti PDF con esiti per file.
+
+## Fase 34 — Compilazione moduli ✅
+
+- ✅ `core/form.rs::compila`: imposta i valori `/V` dei campi (NeedAppearances) e, con
+  `flatten`, li appiattisce nel contenuto via Pdfium (non più editabili). `leggi`
+  ora riporta anche il valore. Comandi `compila_modulo` / `esporta_dati_form` / `salva_testo`.
+- ✅ Pannello Moduli: modalità **Compila** con valori, flatten, **import/export dati JSON**
+  (per nome campo). Test `compila_modulo_imposta_valore` in `evolutive2.rs`.
+
 ## Idee future ⏳
 
 - ⏳ Anteprime con drag&drop per riordino, miniature nel pannello Pagine

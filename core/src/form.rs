@@ -25,6 +25,8 @@ pub struct CampoModulo {
     pub tipo: Option<String>,
     /// Tooltip / etichetta accessibile (/TU), se presente.
     pub tooltip: Option<String>,
+    /// Valore corrente del campo (/V), se presente.
+    pub valore: Option<String>,
     /// Pagina (0-based) su cui appare il widget, se ricavabile.
     pub pagina: Option<i32>,
 }
@@ -126,6 +128,7 @@ fn raccogli_campo(
             nome: testo(doc, d, b"T"),
             tipo,
             tooltip: testo(doc, d, b"TU"),
+            valore: testo(doc, d, b"V"),
             pagina,
         });
     } else {
@@ -170,6 +173,67 @@ pub fn applica(
 
     doc.save(destinazione).map_err(|e| Errore::Io(format!("salvataggio: {e}")))?;
     Ok(count)
+}
+
+/// Compila i campi (per riferimento) impostando il valore /V, e salva una copia.
+/// Se `flatten` è true, "appiattisce" i campi nel contenuto (non più editabili)
+/// tramite Pdfium. Ritorna quanti campi sono stati compilati.
+pub fn compila(
+    origine: &Path,
+    destinazione: &Path,
+    valori: &[(String, String)],
+    flatten: bool,
+) -> Risultato<usize> {
+    let mut doc = Document::load(origine).map_err(|e| Errore::Pdfium(format!("lopdf: {e}")))?;
+
+    // I lettori devono rigenerare l'aspetto dei campi compilati.
+    if let Some(acro_id) = catalogo(&doc)
+        .and_then(|c| c.get(b"AcroForm").ok())
+        .and_then(|o| o.as_reference().ok())
+    {
+        if let Ok(acro) = doc.get_object_mut(acro_id).and_then(|o| o.as_dict_mut()) {
+            acro.set("NeedAppearances", Object::Boolean(true));
+        }
+    }
+
+    let mut count = 0;
+    for (rif, val) in valori {
+        if let Some(id) = parse_riferimento(rif) {
+            if let Ok(d) = doc.get_object_mut(id).and_then(|o| o.as_dict_mut()) {
+                d.set("V", stringa_utf16(val));
+                d.remove(b"AP"); // forza la rigenerazione dell'aspetto
+                count += 1;
+            }
+        }
+    }
+
+    if flatten {
+        // Salva un intermedio, poi appiattisci con Pdfium.
+        let tmp = std::env::temp_dir().join(format!("pdfa_compila_{}.pdf", std::process::id()));
+        doc.save(&tmp).map_err(|e| Errore::Io(format!("intermedio: {e}")))?;
+        appiattisci(&tmp, destinazione)?;
+        let _ = std::fs::remove_file(&tmp);
+    } else {
+        doc.save(destinazione).map_err(|e| Errore::Io(format!("salvataggio: {e}")))?;
+    }
+    Ok(count)
+}
+
+/// Appiattisce i campi/annotazioni nel contenuto delle pagine (via Pdfium).
+fn appiattisci(origine: &Path, destinazione: &Path) -> Risultato<()> {
+    let pdfium = crate::pdfium::istanza()?;
+    let doc = pdfium
+        .load_pdf_from_file(origine, None)
+        .map_err(|e| Errore::Pdfium(format!("apertura: {e}")))?;
+    let n = doc.pages().len();
+    for i in 0..n {
+        if let Ok(mut page) = doc.pages().get(i) {
+            let _ = page.flatten();
+        }
+    }
+    doc.save_to_file(destinazione)
+        .map_err(|e| Errore::Io(format!("salvataggio: {e}")))?;
+    Ok(())
 }
 
 // --- Helper ------------------------------------------------------------------

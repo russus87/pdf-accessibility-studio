@@ -952,6 +952,149 @@ pub fn redigi(id: String, aree: Vec<AreaInput>, destinazione: String, stato: Sta
     pdfa_core::redazione::redigi(&path, std::path::Path::new(&destinazione), &aree).map_err(|e| e.to_string())
 }
 
+// --- Ottimizzazione (Fase 31) -------------------------------------------------
+
+#[derive(Serialize)]
+pub struct EsitoOttim {
+    pub prima: u64,
+    pub dopo: u64,
+}
+
+#[tauri::command]
+pub fn ottimizza(id: String, destinazione: String, stato: State<StatoApp>) -> Result<EsitoOttim, String> {
+    let path = percorso(&stato, &id)?;
+    let (prima, dopo) = pdfa_core::ottimizzazione::ottimizza(&path, std::path::Path::new(&destinazione))
+        .map_err(|e| e.to_string())?;
+    Ok(EsitoOttim { prima, dopo })
+}
+
+// --- Estrazione testo/HTML/Markdown (Fase 32) ---------------------------------
+
+#[tauri::command]
+pub fn esporta_contenuto(id: String, formato: String, destinazione: String, stato: State<StatoApp>) -> Result<(), String> {
+    let path = percorso(&stato, &id)?;
+    let testo = pdfa_core::estrazione::esporta(&path, pdfa_core::estrazione::Formato::da_str(&formato))
+        .map_err(|e| e.to_string())?;
+    std::fs::write(&destinazione, testo).map_err(|e| e.to_string())
+}
+
+// --- Compilazione moduli (Fase 34) --------------------------------------------
+
+#[derive(serde::Deserialize)]
+pub struct ValoreCampo {
+    pub riferimento: String,
+    pub valore: String,
+}
+
+#[tauri::command]
+pub fn compila_modulo(
+    id: String,
+    valori: Vec<ValoreCampo>,
+    flatten: bool,
+    destinazione: String,
+    stato: State<StatoApp>,
+) -> Result<usize, String> {
+    let path = percorso(&stato, &id)?;
+    let valori: Vec<(String, String)> = valori.into_iter().map(|v| (v.riferimento, v.valore)).collect();
+    pdfa_core::form::compila(&path, std::path::Path::new(&destinazione), &valori, flatten)
+        .map_err(|e| e.to_string())
+}
+
+/// Salva una stringa di testo su disco (es. dati modulo JSON).
+#[tauri::command]
+pub fn salva_testo(contenuto: String, destinazione: String) -> Result<(), String> {
+    std::fs::write(&destinazione, contenuto).map_err(|e| e.to_string())
+}
+
+/// Esporta i dati del modulo come JSON { nome: valore }.
+#[tauri::command]
+pub fn esporta_dati_form(id: String, stato: State<StatoApp>) -> Result<String, String> {
+    let path = percorso(&stato, &id)?;
+    let campi = pdfa_core::form::leggi(&path).map_err(|e| e.to_string())?;
+    let mappa: std::collections::BTreeMap<String, String> = campi
+        .into_iter()
+        .filter_map(|c| c.nome.map(|n| (n, c.valore.unwrap_or_default())))
+        .collect();
+    serde_json::to_string_pretty(&mappa).map_err(|e| e.to_string())
+}
+
+// --- Elaborazione batch (Fase 33) ---------------------------------------------
+
+#[derive(Serialize)]
+pub struct EsitoBatch {
+    pub file: String,
+    pub ok: bool,
+    pub messaggio: String,
+}
+
+/// Applica un'operazione a una lista di file, scrivendo gli output nella cartella.
+/// Operazioni: "ottimizza", "filigrana", "numerazione", "valida".
+#[tauri::command]
+pub fn batch(
+    files: Vec<String>,
+    operazione: String,
+    testo: Option<String>,
+    cartella: String,
+) -> Vec<EsitoBatch> {
+    let out_dir = std::path::Path::new(&cartella);
+    files
+        .into_iter()
+        .map(|f| {
+            let src = std::path::PathBuf::from(&f);
+            let stem = src.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_else(|| "file".into());
+            let res = esegui_batch(&src, &operazione, testo.as_deref(), out_dir, &stem);
+            match res {
+                Ok(m) => EsitoBatch { file: f, ok: true, messaggio: m },
+                Err(e) => EsitoBatch { file: f, ok: false, messaggio: e },
+            }
+        })
+        .collect()
+}
+
+fn esegui_batch(src: &std::path::Path, op: &str, testo: Option<&str>, out_dir: &std::path::Path, stem: &str) -> Result<String, String> {
+    match op {
+        "ottimizza" => {
+            let dest = out_dir.join(format!("{stem}-ottimizzato.pdf"));
+            let (p, d) = pdfa_core::ottimizzazione::ottimizza(src, &dest).map_err(|e| e.to_string())?;
+            Ok(format!("{} → {} KB", p / 1024, d / 1024))
+        }
+        "filigrana" => {
+            let dest = out_dir.join(format!("{stem}-filigrana.pdf"));
+            let f = pdfa_core::sovrapposizione::Filigrana::Testo {
+                testo: testo.unwrap_or("RISERVATO").to_string(),
+                dim_pt: 60.0,
+                colore: pdfa_core::sovrapposizione::Colore { r: 200, g: 30, b: 30 },
+                opacita: 40,
+                rotazione: 45.0,
+            };
+            pdfa_core::sovrapposizione::applica(src, &dest, &[], Some(&f)).map_err(|e| e.to_string())?;
+            Ok("filigrana applicata".into())
+        }
+        "numerazione" => {
+            let dest = out_dir.join(format!("{stem}-numerato.pdf"));
+            let op = pdfa_core::intestazioni::Opzioni {
+                testo: testo.unwrap_or("{n} / {tot}").to_string(),
+                dim_pt: 11.0,
+                colore: pdfa_core::sovrapposizione::Colore { r: 80, g: 80, b: 80 },
+                margine_mm: 12.0,
+                ancora: pdfa_core::intestazioni::Ancora::BassoCentro,
+                inizio_numerazione: 1,
+            };
+            let n = pdfa_core::intestazioni::applica(src, &dest, &op).map_err(|e| e.to_string())?;
+            Ok(format!("{n} pagine numerate"))
+        }
+        "valida" => {
+            let report = pdfa_core::valida(src).map_err(|e| e.to_string())?;
+            let html = pdfa_core::validazione::report_html(stem, &report);
+            let dest = out_dir.join(format!("{stem}-validazione.html"));
+            std::fs::write(&dest, html).map_err(|e| e.to_string())?;
+            let errori = report.esiti.iter().filter(|e| matches!(e.gravita, pdfa_core::validazione::Gravita::Errore)).count();
+            Ok(format!("{errori} errori"))
+        }
+        _ => Err(format!("operazione sconosciuta: {op}")),
+    }
+}
+
 // --- Campi modulo editabili (Fase 26) -----------------------------------------
 
 /// Un nuovo campo di testo da inserire (dall'editor). Campi annidati snake_case.

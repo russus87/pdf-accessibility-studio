@@ -462,6 +462,53 @@ export async function redigi(id, aree) {
   return { dest: destinazione, n };
 }
 
+// --- Ottimizzazione (Fase 31) ---
+export async function ottimizza(id) {
+  const destinazione = await save({ defaultPath: "ottimizzato.pdf", filters: [{ name: "PDF", extensions: ["pdf"] }] });
+  if (!destinazione) return null;
+  const r = await invoke("ottimizza", { id, destinazione });
+  return { dest: destinazione, ...r };
+}
+
+// --- Estrazione testo/HTML/Markdown (Fase 32) ---
+export async function esportaContenuto(id, formato) {
+  const ext = formato === "markdown" ? "md" : formato; // txt | html | md
+  const destinazione = await save({ defaultPath: `contenuto.${ext}`, filters: [{ name: ext.toUpperCase(), extensions: [ext] }] });
+  if (!destinazione) return false;
+  await invoke("esporta_contenuto", { id, formato, destinazione });
+  return true;
+}
+
+// --- Compilazione moduli (Fase 34) ---
+/** `valori` = [{ riferimento, valore }]. */
+export async function compilaModulo(id, valori, flatten) {
+  const destinazione = await save({ defaultPath: flatten ? "compilato-bloccato.pdf" : "compilato.pdf", filters: [{ name: "PDF", extensions: ["pdf"] }] });
+  if (!destinazione) return null;
+  const n = await invoke("compila_modulo", { id, valori, flatten: !!flatten, destinazione });
+  return { dest: destinazione, n };
+}
+export function esportaDatiForm(id) {
+  return invoke("esporta_dati_form", { id });
+}
+/** Salva una stringa su file scelto dall'utente. Ritorna true se salvato. */
+export async function salvaTesto(contenuto, nomeDefault, ext) {
+  const destinazione = await save({ defaultPath: nomeDefault, filters: [{ name: ext.toUpperCase(), extensions: [ext] }] });
+  if (!destinazione) return false;
+  await invoke("salva_testo", { contenuto, destinazione });
+  return true;
+}
+
+// --- Elaborazione batch (Fase 33) ---
+/** Sceglie i PDF e la cartella di output, esegue l'operazione su tutti. */
+export async function batch(operazione, testo) {
+  const scelta = await open({ multiple: true, filters: [{ name: "PDF", extensions: ["pdf"] }] });
+  if (!scelta) return null;
+  const files = Array.isArray(scelta) ? scelta : [scelta];
+  const cartella = await open({ directory: true });
+  if (!cartella) return null;
+  return invoke("batch", { files, operazione, testo: testo ?? null, cartella });
+}
+
 // --- Libreria firme (Fase 25) ---
 /** Elenco firme salvate: [{ nome, dati_base64 }]. */
 export function firmeElenco() {
