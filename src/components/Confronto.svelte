@@ -2,7 +2,7 @@
   // Vista di confronto tra due PDF aperti: testo, tag e immagine pixel-to-pixel,
   // con esportazione del report in HTML/PDF.
   import { schede } from "../lib/schede.svelte.js";
-  import { confronta, confrontaImmagine, salvaReport } from "../lib/api.js";
+  import { confronta, confrontaImmagine, salvaReport, sovrapponiConfronto } from "../lib/api.js";
 
   let idA = $state(schede.schede[0]?.id ?? "");
   let idB = $state(schede.schede[1]?.id ?? "");
@@ -16,6 +16,20 @@
   let pagina = $state(0);
   let img = $state(null);
   let imgCaricamento = $state(false);
+  let imgSovr = $state(null);
+
+  async function sovrapponi() {
+    if (!idA || !idB || idA === idB) return;
+    imgCaricamento = true;
+    imgSovr = null;
+    try {
+      imgSovr = await sovrapponiConfronto(idA, idB, pagina, 900);
+    } catch (e) {
+      errore = String(e);
+    } finally {
+      imgCaricamento = false;
+    }
+  }
 
   // Ricarica il confronto testo+tag quando cambiano A/B.
   $effect(() => {
@@ -81,6 +95,7 @@
       <button class:on={modalita === "testo"} onclick={() => (modalita = "testo")}>Testo</button>
       <button class:on={modalita === "tag"} onclick={() => (modalita = "tag")}>Tag</button>
       <button class:on={modalita === "immagine"} onclick={() => (modalita = "immagine")}>Immagine</button>
+      <button class:on={modalita === "sovrapposizione"} onclick={() => (modalita = "sovrapposizione")}>Sovrapposizione</button>
     </div>
 
     <div class="report">
@@ -110,6 +125,23 @@
         <img src={`data:image/png;base64,${img.diff_png_base64}`} alt="Differenze pagina" />
       {:else}
         <p class="info">Premi “Confronta pagina”. Le differenze appariranno in rosso.</p>
+      {/if}
+    </div>
+  {:else if modalita === "sovrapposizione"}
+    <div class="barra-img">
+      <label>Pagina
+        <input type="number" min="1" bind:value={pagina} oninput={(e) => (pagina = Math.max(0, +e.target.value - 1))} style="width:64px" />
+      </label>
+      <button onclick={sovrapponi}>Sovrapponi pagina {pagina + 1}</button>
+      <span class="perc">Rosso = solo nel 1°, Blu = solo nel 2°, Nero = uguale</span>
+    </div>
+    <div class="area-img">
+      {#if imgCaricamento}
+        <p class="info">Rendering e sovrapposizione…</p>
+      {:else if imgSovr}
+        <img src={imgSovr} alt="Sovrapposizione pagine" />
+      {:else}
+        <p class="info">Premi “Sovrapponi pagina”.</p>
       {/if}
     </div>
   {:else if caricamento}

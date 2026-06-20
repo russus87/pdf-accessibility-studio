@@ -367,6 +367,35 @@ Alt, cambio ruolo e riordino su un PDF taggato costruito al volo.
   data, poi prune+compress. Comando `comprimi_immagini`; controlli in Strumenti →
   Ottimizza. Test: no-op valido su PDF senza immagini.
 
+## Fase 43 — Auto-remediation accessibilità (1 clic) ✅
+
+- ✅ `core/correzione.rs::auto`: imposta lingua, titolo (fallback al nome file) e
+  DisplayDocTitle, poi rivalida; ritorna errori prima/dopo. Comando `auto_correggi`;
+  pulsante "Correzione automatica" nel pannello Correggi. Test in `evolutive5.rs`.
+
+## Fase 44 — Sanitizzazione/privacy ✅
+
+- ✅ `core/sanitizza.rs`: rimuove JavaScript/azioni (OpenAction, AA, Names/JavaScript,
+  azioni nelle annotazioni), metadati (Info + XMP, mantiene il Title), allegati
+  (EmbeddedFiles). Comando `sanitizza_pdf`; sezione nel pannello Strumenti → Protezione.
+
+## Fase 45 — Editor segnalibri manuale ✅
+
+- ✅ `core/segnalibri.rs::imposta`: scrive l'outline da una lista (titolo, livello,
+  pagina) con annidamento per livello. Comando `imposta_segnalibri`; modalità
+  **Modifica** nel pannello Segnalibri (aggiungi/rinomina/riordina/elimina). Test in `evolutive5.rs`.
+
+## Fase 46 — Split intelligente ✅
+
+- ✅ Comando `split_pdf`: divide per "ogni N pagine" o "per segnalibri" (primo
+  livello), scrivendo i file in una cartella. Sezione *Dividi…* nel pannello Pagine.
+
+## Fase 47 — Confronto a sovrapposizione ✅
+
+- ✅ `core/confronto.rs::sovrapponi_pagine`: onion-skin di due pagine — contenuto
+  solo nel 1° → rosso, solo nel 2° → blu, in entrambe → nero. Comando
+  `sovrapponi_confronto`; modalità **Sovrapposizione** nella vista Confronto.
+
 ## Idee future ⏳
 
 - ⏳ Anteprime con drag&drop per riordino, miniature nel pannello Pagine

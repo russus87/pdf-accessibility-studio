@@ -6,7 +6,7 @@
     pdfProtetto, proteggiPdf, sbloccaPdf,
     esportaImmagini, creaPdfDaImmagini, numeraPagine,
     ottimizza, esportaContenuto, batch,
-    generaToc, esportaDocx, esportaXlsx, comprimiImmagini,
+    generaToc, esportaDocx, esportaXlsx, comprimiImmagini, sanitizzaPdf,
   } from "../lib/api.js";
 
   const s = $derived(schede.schedaAttiva);
@@ -19,6 +19,7 @@
   let permessi = $state({ stampa: true, copia: false, modifica: false, annotazioni: true });
   let pwSblocco = $state("");
   let protetto = $state(false);
+  let san = $state({ javascript: true, metadati: true, allegati: true });
   $effect(() => {
     if (!s) return;
     pdfProtetto(s.id).then((p) => (protetto = p)).catch(() => {});
@@ -61,6 +62,13 @@
   async function sblocca() {
     const dest = await azione(() => sbloccaPdf(s.id, pwSblocco));
     if (dest) esito = { ok: true, dest };
+  }
+  async function sanitizza() {
+    const r = await azione(() => sanitizzaPdf(s.id, san));
+    if (r) {
+      const rim = [r.esito.javascript && "JavaScript", r.esito.metadati && "metadati", r.esito.allegati && "allegati"].filter(Boolean);
+      esito = { ok: true, dest: r.dest, msg: rim.length ? `Rimossi: ${rim.join(", ")}.` : "Nessun dato nascosto trovato." };
+    }
   }
   async function esporta() {
     const r = await azione(() => esportaImmagini(s.id, imgLarghezza, imgJpeg));
@@ -151,6 +159,13 @@
         <div class="cap">Sblocca</div>
         <label>Password<input type="password" bind:value={pwSblocco} /></label>
         <button class="vai" onclick={sblocca}>Rimuovi protezione e salva…</button>
+        <div class="cap">Sanitizza (privacy)</div>
+        <div class="perm">
+          <label class="ck"><input type="checkbox" bind:checked={san.javascript} /> JavaScript/azioni</label>
+          <label class="ck"><input type="checkbox" bind:checked={san.metadati} /> Metadati</label>
+          <label class="ck"><input type="checkbox" bind:checked={san.allegati} /> Allegati</label>
+        </div>
+        <button class="vai" onclick={sanitizza}>Rimuovi dati nascosti e salva…</button>
       </div>
 
     {:else if sezione === "immagini"}

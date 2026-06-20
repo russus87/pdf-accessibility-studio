@@ -115,6 +115,28 @@ pub fn applica(origine: &Path, destinazione: &Path, c: &Correzioni) -> Risultato
     Ok(())
 }
 
+/// Correzione automatica "1 clic": imposta lingua, titolo (usa `titolo_fallback`
+/// se mancante) e DisplayDocTitle, poi rivalida. Ritorna (errori prima, errori dopo).
+pub fn auto(origine: &Path, destinazione: &Path, lang: &str, titolo_fallback: &str) -> Risultato<(usize, usize)> {
+    let conta = |r: &crate::validazione::Report| {
+        r.esiti.iter().filter(|e| matches!(e.gravita, crate::validazione::Gravita::Errore)).count()
+    };
+    let prima = conta(&crate::valida(origine)?);
+
+    let info = crate::analizza(origine)?;
+    let titolo = info.titolo.filter(|t| !t.trim().is_empty()).unwrap_or_else(|| titolo_fallback.to_string());
+    let correzioni = Correzioni {
+        lang: (!lang.trim().is_empty()).then(|| lang.to_string()),
+        titolo: Some(titolo),
+        display_doc_title: true,
+        ..Default::default()
+    };
+    applica(origine, destinazione, &correzioni)?;
+
+    let dopo = conta(&crate::valida(destinazione)?);
+    Ok((prima, dopo))
+}
+
 /// Riordina gli elementi di primo livello dello structure tree secondo l'ordine
 /// di riferimenti dato, e salva una copia. Cambia l'ordine di lettura logico.
 pub fn riordina(origine: &Path, destinazione: &Path, ordine: &[String]) -> Risultato<()> {

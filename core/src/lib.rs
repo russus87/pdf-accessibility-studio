@@ -30,6 +30,7 @@ pub mod modello;
 pub mod office;
 pub mod ottimizzazione;
 pub mod redazione;
+pub mod sanitizza;
 pub mod ocr;
 pub mod pagine;
 pub mod pdfium;

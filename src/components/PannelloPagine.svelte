@@ -2,7 +2,7 @@
   // Operazioni sulle pagine: ruota / elimina / estrai (su selezione), riordina,
   // unisci con altri PDF. Ogni operazione salva una copia.
   import { schede } from "../lib/schede.svelte.js";
-  import { ruotaPagine, eliminaPagine, estraiPagine, riordinaPagine, unisciPdf, ritagliaPagine, inserisciPagine } from "../lib/api.js";
+  import { ruotaPagine, eliminaPagine, estraiPagine, riordinaPagine, unisciPdf, ritagliaPagine, inserisciPagine, splitPdf } from "../lib/api.js";
 
   const s = $derived(schede.schedaAttiva);
   let modo = $state("selezione"); // "selezione" | "riordina"
@@ -11,6 +11,17 @@
   let esito = $state(null);
   let crop = $state({ x: 10, y: 10, w: 150, h: 200 });
   let mostraCrop = $state(false);
+  let split = $state({ mostra: false, modo: "ogni_n", n: 1 });
+
+  async function dividi() {
+    esito = null;
+    try {
+      const r = await splitPdf(s.id, split.modo, split.n);
+      if (r) esito = { ok: true, msg: `${r.length} file creati nella cartella.` };
+    } catch (e) {
+      esito = { ok: false, msg: String(e) };
+    }
+  }
 
   $effect(() => {
     if (!s) return;
@@ -59,8 +70,8 @@
   </header>
 
   {#if esito?.ok}
-    <p class="esito">Copia salvata.
-      <button class="link" onclick={() => schede.apri(esito.dest)}>Aprila</button>
+    <p class="esito">{esito.msg || "Copia salvata."}
+      {#if esito.dest}<button class="link" onclick={() => schede.apri(esito.dest)}>Aprila</button>{/if}
     </p>
   {:else if esito && !esito.ok}
     <p class="err">{esito.msg}</p>
@@ -78,7 +89,23 @@
       <button class="unisci" onclick={() => esegui(() => unisciPdf(s.id), false)}>Unisci con…</button>
       <button onclick={() => esegui(() => inserisciPagine(s.id, selezionate[0] ?? (s.pagine + 1)), false)}>Inserisci PDF…</button>
       <button onclick={() => (mostraCrop = !mostraCrop)}>Ritaglia…</button>
+      <button onclick={() => (split.mostra = !split.mostra)}>Dividi…</button>
     </div>
+    {#if split.mostra}
+      <div class="crop">
+        <span class="ct">Dividi il PDF in più file</span>
+        <div class="cr">
+          <label style="flex:2">Modo
+            <select bind:value={split.modo}>
+              <option value="ogni_n">Ogni N pagine</option>
+              <option value="segnalibri">Per segnalibri</option>
+            </select>
+          </label>
+          {#if split.modo === "ogni_n"}<label>N<input type="number" min="1" bind:value={split.n} /></label>{/if}
+        </div>
+        <button onclick={dividi}>Dividi in cartella…</button>
+      </div>
+    {/if}
     {#if mostraCrop}
       <div class="crop">
         <span class="ct">Area di ritaglio (mm, da alto-sx) sulle pagine selezionate</span>

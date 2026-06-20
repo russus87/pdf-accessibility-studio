@@ -111,6 +111,41 @@ pub fn confronta_immagine(a: &Path, b: &Path, pagina: i32, larghezza: i32) -> Ri
     })
 }
 
+/// Sovrappone due pagine (onion-skin): contenuto solo in A → rosso, solo in B →
+/// blu, in entrambe → nero, in nessuna → bianco. Ritorna un PNG in base64.
+pub fn sovrapponi_pagine(a: &Path, b: &Path, pagina: i32, larghezza: i32) -> Risultato<String> {
+    let ia = render_immagine(a, pagina, larghezza)?.to_rgba8();
+    let ib = render_immagine(b, pagina, larghezza)?.to_rgba8();
+    let w = ia.width().max(ib.width());
+    let h = ia.height().max(ib.height());
+    let mut out = image::RgbaImage::new(w, h);
+
+    let scuro = |img: &image::RgbaImage, x: u32, y: u32| -> i32 {
+        if x < img.width() && y < img.height() {
+            let p = img.get_pixel(x, y);
+            255 - ((p[0] as i32 + p[1] as i32 + p[2] as i32) / 3)
+        } else {
+            0
+        }
+    };
+
+    for y in 0..h {
+        for x in 0..w {
+            let da = scuro(&ia, x, y);
+            let db = scuro(&ib, x, y);
+            let r = (255 - db).clamp(0, 255) as u8;
+            let g = (255 - da - db).clamp(0, 255) as u8;
+            let bl = (255 - da).clamp(0, 255) as u8;
+            out.put_pixel(x, y, Rgba([r, g, bl, 255]));
+        }
+    }
+
+    let mut buf = Vec::new();
+    image::DynamicImage::ImageRgba8(out)
+        .write_to(&mut std::io::Cursor::new(&mut buf), image::ImageFormat::Png)?;
+    Ok(STANDARD.encode(&buf))
+}
+
 // --- Report ------------------------------------------------------------------
 
 /// Genera il report di confronto (testo + tag) in HTML autoconsistente.

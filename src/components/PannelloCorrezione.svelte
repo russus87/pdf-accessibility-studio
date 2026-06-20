@@ -2,7 +2,7 @@
   // Correzione assistita: imposta lingua, titolo e "mostra titolo", poi salva
   // una copia corretta del PDF (l'originale resta intatto).
   import { schede } from "../lib/schede.svelte.js";
-  import { correggi, alberoTag, statoAi, impostaAi, suggerisciAlt } from "../lib/api.js";
+  import { correggi, alberoTag, statoAi, impostaAi, suggerisciAlt, autoCorreggi } from "../lib/api.js";
 
   const s = $derived(schede.schedaAttiva);
 
@@ -38,6 +38,17 @@
       aiEsito = `AI: ${e}`;
     } finally {
       aiInCorso[f.riferimento] = false;
+    }
+  }
+
+  let autoEsito = $state(null);
+  async function autoFix() {
+    autoEsito = null;
+    try {
+      const r = await autoCorreggi(s.id, lang);
+      if (r) autoEsito = r;
+    } catch (e) {
+      autoEsito = { errore: String(e) };
     }
   }
 
@@ -129,6 +140,17 @@
     Applica correzioni a livello documento e salva una <b>copia corretta</b>.
     L'originale non viene modificato.
   </p>
+
+  <div class="auto">
+    <button class="auto-btn" onclick={autoFix} disabled={!s}>✨ Correzione automatica (1 clic)</button>
+    {#if autoEsito?.errore}
+      <p class="auto-err">{autoEsito.errore}</p>
+    {:else if autoEsito}
+      <p class="auto-ok">Errori: {autoEsito.errori_prima} → <b>{autoEsito.errori_dopo}</b>.
+        <button class="link" onclick={() => schede.apri(autoEsito.dest)}>Apri il corretto</button>
+      </p>
+    {/if}
+  </div>
 
   <label>
     Lingua del documento
@@ -239,6 +261,25 @@
     font-size: 12px;
     font-style: italic;
   }
+  .auto {
+    margin: 0 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .auto-btn {
+    background: #173021;
+    color: #7ad08f;
+    border: 1px solid #2e6a45;
+    border-radius: 8px;
+    padding: 9px 14px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .auto-btn:disabled { opacity: 0.5; cursor: default; }
+  .auto-ok { margin: 0; font-size: 12px; color: #7ad08f; }
+  .auto-err { margin: 0; font-size: 12px; color: var(--errore); }
   .figure {
     display: flex;
     flex-direction: column;

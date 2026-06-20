@@ -1318,6 +1318,100 @@ pub fn comprimi_immagini(id: String, max_px: u32, qualita: u8, destinazione: Str
     Ok(EsitoOttim { prima, dopo })
 }
 
+// --- Auto-remediation (Fase 43) -----------------------------------------------
+
+#[derive(Serialize)]
+pub struct EsitoAuto {
+    pub errori_prima: usize,
+    pub errori_dopo: usize,
+}
+
+#[tauri::command]
+pub fn auto_correggi(id: String, lang: String, destinazione: String, stato: State<StatoApp>) -> Result<EsitoAuto, String> {
+    let path = percorso(&stato, &id)?;
+    let fallback = path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_else(|| "Documento".into());
+    let (prima, dopo) = pdfa_core::correzione::auto(&path, std::path::Path::new(&destinazione), &lang, &fallback)
+        .map_err(|e| e.to_string())?;
+    Ok(EsitoAuto { errori_prima: prima, errori_dopo: dopo })
+}
+
+// --- Sanitizzazione (Fase 44) -------------------------------------------------
+
+#[tauri::command]
+pub fn sanitizza_pdf(id: String, javascript: bool, metadati: bool, allegati: bool, destinazione: String, stato: State<StatoApp>) -> Result<pdfa_core::sanitizza::Esito, String> {
+    let path = percorso(&stato, &id)?;
+    let op = pdfa_core::sanitizza::Opzioni { javascript, metadati, allegati };
+    pdfa_core::sanitizza::pulisci(&path, std::path::Path::new(&destinazione), &op).map_err(|e| e.to_string())
+}
+
+// --- Editor segnalibri (Fase 45) ----------------------------------------------
+
+#[derive(serde::Deserialize)]
+pub struct VoceSegnalibro {
+    pub titolo: String,
+    pub livello: u8,
+    pub pagina: i32,
+}
+
+#[tauri::command]
+pub fn imposta_segnalibri(id: String, voci: Vec<VoceSegnalibro>, destinazione: String, stato: State<StatoApp>) -> Result<usize, String> {
+    let path = percorso(&stato, &id)?;
+    let voci: Vec<(String, u8, i32)> = voci.into_iter().map(|v| (v.titolo, v.livello.max(1), v.pagina)).collect();
+    pdfa_core::segnalibri::imposta(&path, std::path::Path::new(&destinazione), &voci).map_err(|e| e.to_string())
+}
+
+// --- Split intelligente (Fase 46) ---------------------------------------------
+
+/// Divide il PDF. `modo`: "ogni_n" (chunk di `n` pagine) o "segnalibri" (per i
+/// segnalibri di primo livello). Scrive i file nella `cartella`. Ritorna i percorsi.
+#[tauri::command]
+pub fn split_pdf(id: String, modo: String, n: u32, cartella: String, stato: State<StatoApp>) -> Result<Vec<String>, String> {
+    let path = percorso(&stato, &id)?;
+    let info = pdfa_core::apri(&path).map_err(|e| e.to_string())?;
+    let totale = info.pagine as u32;
+    let stem = path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_else(|| "parte".into());
+
+    // Calcola gli intervalli [inizio..=fine] (1-based).
+    let mut intervalli: Vec<(u32, u32)> = Vec::new();
+    if modo == "segnalibri" {
+        let bm = pdfa_core::segnalibri::segnalibri(&path).map_err(|e| e.to_string())?;
+        let mut inizi: Vec<u32> = bm.iter().filter(|b| b.livello == 0)
+            .filter_map(|b| b.pagina.map(|p| p as u32 + 1)).collect();
+        inizi.sort_unstable();
+        inizi.dedup();
+        if inizi.is_empty() || inizi[0] != 1 { inizi.insert(0, 1); }
+        for i in 0..inizi.len() {
+            let fine = if i + 1 < inizi.len() { inizi[i + 1] - 1 } else { totale };
+            if inizi[i] <= fine { intervalli.push((inizi[i], fine)); }
+        }
+    } else {
+        let passo = n.max(1);
+        let mut p = 1;
+        while p <= totale {
+            intervalli.push((p, (p + passo - 1).min(totale)));
+            p += passo;
+        }
+    }
+
+    let mut out = Vec::new();
+    for (k, (inizio, fine)) in intervalli.iter().enumerate() {
+        let pagine: Vec<u32> = (*inizio..=*fine).collect();
+        let dest = std::path::Path::new(&cartella).join(format!("{stem}-{:02}.pdf", k + 1));
+        pdfa_core::pagine::estrai(&path, &dest, &pagine).map_err(|e| e.to_string())?;
+        out.push(dest.to_string_lossy().into_owned());
+    }
+    Ok(out)
+}
+
+// --- Confronto a sovrapposizione (Fase 47) ------------------------------------
+
+#[tauri::command]
+pub fn sovrapponi_confronto(id_a: String, id_b: String, pagina: i32, larghezza: i32, stato: State<StatoApp>) -> Result<String, String> {
+    let a = percorso(&stato, &id_a)?;
+    let b = percorso(&stato, &id_b)?;
+    pdfa_core::confronto::sovrapponi_pagine(&a, &b, pagina, larghezza).map_err(|e| e.to_string())
+}
+
 // --- Campi modulo editabili (Fase 26) -----------------------------------------
 
 /// Un nuovo campo di testo da inserire (dall'editor). Campi annidati snake_case.

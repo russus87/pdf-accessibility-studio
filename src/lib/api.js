@@ -598,6 +598,43 @@ export async function comprimiImmagini(id, maxPx, qualita) {
   return { dest: destinazione, ...r };
 }
 
+// --- Auto-remediation (Fase 43) ---
+export async function autoCorreggi(id, lang) {
+  const destinazione = await save({ defaultPath: "accessibile.pdf", filters: [{ name: "PDF", extensions: ["pdf"] }] });
+  if (!destinazione) return null;
+  const r = await invoke("auto_correggi", { id, lang, destinazione });
+  return { dest: destinazione, ...r };
+}
+
+// --- Sanitizzazione (Fase 44) ---
+export async function sanitizzaPdf(id, opz) {
+  const destinazione = await save({ defaultPath: "sanitizzato.pdf", filters: [{ name: "PDF", extensions: ["pdf"] }] });
+  if (!destinazione) return null;
+  const esito = await invoke("sanitizza_pdf", { id, javascript: !!opz.javascript, metadati: !!opz.metadati, allegati: !!opz.allegati, destinazione });
+  return { dest: destinazione, esito };
+}
+
+// --- Editor segnalibri (Fase 45) ---
+export async function impostaSegnalibri(id, voci) {
+  const destinazione = await save({ defaultPath: "con-segnalibri.pdf", filters: [{ name: "PDF", extensions: ["pdf"] }] });
+  if (!destinazione) return null;
+  const n = await invoke("imposta_segnalibri", { id, voci, destinazione });
+  return { dest: destinazione, n };
+}
+
+// --- Split intelligente (Fase 46) ---
+export async function splitPdf(id, modo, n) {
+  const cartella = await open({ directory: true });
+  if (!cartella) return null;
+  return invoke("split_pdf", { id, modo, n, cartella });
+}
+
+// --- Confronto a sovrapposizione (Fase 47) ---
+export async function sovrapponiConfronto(idA, idB, pagina, larghezza) {
+  const b64 = await invoke("sovrapponi_confronto", { idA, idB, pagina, larghezza });
+  return `data:image/png;base64,${b64}`;
+}
+
 // --- Libreria firme (Fase 25) ---
 /** Elenco firme salvate: [{ nome, dati_base64 }]. */
 export function firmeElenco() {
