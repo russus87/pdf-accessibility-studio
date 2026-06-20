@@ -42,6 +42,10 @@
       onclick={() => schede.mostraPannello("autotag")}>
       <span class="icona" aria-hidden="true">✨</span><span>Auto-tag</span>
     </button>
+    <button class:on={schede.pannello === "moduli"} disabled={!s}
+      onclick={() => schede.mostraPannello("moduli")}>
+      <span class="icona" aria-hidden="true">🧾</span><span>Moduli</span>
+    </button>
     <button class:on={schede.pannello === "indice"} disabled={!s}
       onclick={() => schede.mostraPannello("indice")}>
       <span class="icona" aria-hidden="true">🔖</span><span>Indice</span>

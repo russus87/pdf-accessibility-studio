@@ -26,6 +26,12 @@ pub struct NodoTag {
     pub lang: Option<String>,
     /// Indice di pagina (0-based) a cui l'elemento si riferisce, se ricavabile.
     pub pagina: Option<i32>,
+    /// Per le celle TH: ambito dell'intestazione (Row/Column/Both) da /A Table.
+    pub scope: Option<String>,
+    /// Righe occupate dalla cella (RowSpan), se > 1.
+    pub row_span: Option<i64>,
+    /// Colonne occupate dalla cella (ColSpan), se > 1.
+    pub col_span: Option<i64>,
     /// Riferimento all'oggetto PDF ("numero_generazione"), se l'elemento e' un
     /// oggetto indiretto: serve per scriverci sopra (es. aggiungere Alt).
     pub riferimento: Option<String>,
@@ -245,6 +251,7 @@ fn raccogli(
                     .and_then(|o| o.as_reference().ok())
                     .and_then(|id| pagine_idx.get(&id).copied())
                     .or(pagina_ereditata);
+                let (scope, row_span, col_span) = attributi_tabella(doc, d);
                 let mut nodo = NodoTag {
                     ruolo: standard.clone(),
                     ruolo_originale: (standard != originale).then_some(originale),
@@ -252,6 +259,9 @@ fn raccogli(
                     actual_text: stringa(doc, d, b"ActualText"),
                     lang: stringa(doc, d, b"Lang"),
                     pagina,
+                    scope,
+                    row_span,
+                    col_span,
                     riferimento: id.map(|(n, g)| format!("{n}_{g}")),
                     figli: Vec::new(),
                 };
@@ -267,6 +277,25 @@ fn raccogli(
         // Interi (MCID) e altro: contenuto, non struttura.
         _ => {}
     }
+}
+
+/// Legge Scope/RowSpan/ColSpan dall'attributo `/A <</O /Table …>>` di una cella.
+fn attributi_tabella(doc: &Document, d: &Dictionary) -> (Option<String>, Option<i64>, Option<i64>) {
+    // Trova il dizionario di attributi con /O /Table (diretto o in un array).
+    let is_table = |t: &Dictionary| t.get(b"O").and_then(|o| o.as_name()).map(|n| n == b"Table").unwrap_or(false);
+    let tab: Option<&Dictionary> = match deref(doc, d.get(b"A").ok()) {
+        Some(Object::Dictionary(t)) if is_table(t) => Some(t),
+        Some(Object::Array(arr)) => arr
+            .iter()
+            .filter_map(|o| deref(doc, Some(o)).and_then(|x| x.as_dict().ok()))
+            .find(|t| is_table(t)),
+        _ => None,
+    };
+    let Some(t) = tab else { return (None, None, None) };
+    let scope = t.get(b"Scope").ok().and_then(|o| o.as_name().ok()).map(|n| String::from_utf8_lossy(n).into_owned());
+    let row = t.get(b"RowSpan").ok().and_then(|o| o.as_i64().ok()).filter(|&n| n > 1);
+    let col = t.get(b"ColSpan").ok().and_then(|o| o.as_i64().ok()).filter(|&n| n > 1);
+    (scope, row, col)
 }
 
 // --- Helper di lettura valori ------------------------------------------------

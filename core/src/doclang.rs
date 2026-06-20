@@ -162,6 +162,7 @@ fn nodo_da_proposta(p: &PropostaTag) -> NodoTag {
         pagina: p.pagina,
         riferimento: None,
         figli: Vec::new(),
+        ..Default::default()
     }
 }
 
@@ -186,6 +187,14 @@ pub fn mappa_ruolo(label: &str, livello: Option<i32>) -> String {
         "footnote" => "Note".to_string(),
         "code" => "Code".to_string(),
         "formula" | "equation" => "Formula".to_string(),
+        // Indice / sommario: tipo di struttura PDF/UA dedicato.
+        "document_index" | "table_of_contents" | "toc" => "TOC".to_string(),
+        // Voce bibliografica.
+        "reference" | "bibliography" => "BibEntry".to_string(),
+        // Campi modulo (anche checkbox): tipo di struttura Form.
+        "form" | "checkbox_selected" | "checkbox_unselected" => "Form".to_string(),
+        // Header/footer: NON sono struttura, vanno trattati come artifact (il
+        // generatore li esclude dall'albero dei tag).
         "page_header" | "page_footer" => "Artifact".to_string(),
         // Sconosciuto: ripieghiamo su paragrafo, ruolo neutro e sempre valido.
         _ => "P".to_string(),
@@ -206,6 +215,19 @@ mod test {
         assert_eq!(mappa_ruolo("picture", None), "Figure");
         assert_eq!(mappa_ruolo("DocItemLabel.CAPTION", None), "Caption");
         assert_eq!(mappa_ruolo("qualcosa_di_ignoto", None), "P");
+    }
+
+    #[test]
+    fn mappa_ruoli_estesi() {
+        // Indice, bibliografia e moduli: ruoli PDF/UA dedicati (non piu' "P").
+        assert_eq!(mappa_ruolo("document_index", None), "TOC");
+        assert_eq!(mappa_ruolo("DocItemLabel.REFERENCE", None), "BibEntry");
+        assert_eq!(mappa_ruolo("form", None), "Form");
+        assert_eq!(mappa_ruolo("checkbox_selected", None), "Form");
+        assert_eq!(mappa_ruolo("code", None), "Code");
+        assert_eq!(mappa_ruolo("formula", None), "Formula");
+        // Header/footer restano "Artifact" (esclusi dall'albero dal generatore).
+        assert_eq!(mappa_ruolo("page_footer", None), "Artifact");
     }
 
     #[test]

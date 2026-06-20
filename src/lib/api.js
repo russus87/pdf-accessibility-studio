@@ -332,6 +332,64 @@ export async function generaPdfAccessibile(id, proposte, lang, titolo, opts = {}
   return { dest: destinazione, n };
 }
 
+/** Marca gli elementi (per riferimento) come Artifact: li toglie dall'ordine di
+ *  lettura e riscrive il loro marked content. Salva una copia; ritorna { dest, n }
+ *  o null se annullato. */
+export async function marcaArtifact(id, riferimenti) {
+  const destinazione = await save({
+    defaultPath: "con-artifact.pdf",
+    filters: [{ name: "PDF", extensions: ["pdf"] }],
+  });
+  if (!destinazione) return null;
+  const n = await invoke("marca_artifact", { id, riferimenti, destinazione });
+  return { dest: destinazione, n };
+}
+
+/** Applica attributi di accessibilità alle celle di tabella (Scope/RowSpan/ColSpan)
+ *  e salva una copia. `celle` = [{ riferimento, scope?, rowSpan?, colSpan? }].
+ *  Ritorna { dest, n } o null se annullato. */
+export async function applicaTabella(id, celle) {
+  const destinazione = await save({
+    defaultPath: "tabelle-accessibili.pdf",
+    filters: [{ name: "PDF", extensions: ["pdf"] }],
+  });
+  if (!destinazione) return null;
+  const n = await invoke("applica_tabella", {
+    id,
+    // Campi di struct annidata: Tauri NON converte camelCase qui, usa snake_case.
+    celle: celle.map((c) => ({
+      riferimento: c.riferimento,
+      scope: c.scope ?? null,
+      row_span: c.rowSpan ?? null,
+      col_span: c.colSpan ?? null,
+    })),
+    destinazione,
+  });
+  return { dest: destinazione, n };
+}
+
+// --- Form accessibili (AcroForm) ---
+/** Legge i campi del modulo: [{ riferimento, nome, tipo, tooltip, pagina }]. */
+export function leggiForm(id) {
+  return invoke("leggi_form", { id });
+}
+/** Imposta i tooltip /TU sui campi e (se tabsStruttura) /Tabs /S sulle pagine.
+ *  `campi` = [{ riferimento, tooltip }]. Salva una copia; ritorna { dest, n } o null. */
+export async function applicaForm(id, campi, tabsStruttura) {
+  const destinazione = await save({
+    defaultPath: "modulo-accessibile.pdf",
+    filters: [{ name: "PDF", extensions: ["pdf"] }],
+  });
+  if (!destinazione) return null;
+  const n = await invoke("applica_form", {
+    id,
+    campi: campi.map((c) => ({ riferimento: c.riferimento, tooltip: c.tooltip })),
+    tabsStruttura: !!tabsStruttura,
+    destinazione,
+  });
+  return { dest: destinazione, n };
+}
+
 /** Riordina gli elementi di primo livello (ordine di lettura) e salva una copia. */
 export async function riordina(id, ordine) {
   const destinazione = await save({

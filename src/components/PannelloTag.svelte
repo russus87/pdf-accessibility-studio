@@ -2,18 +2,20 @@
   // Pannello struttura/tag: naviga, modifica i ruoli, riordina l'ordine di
   // lettura ed esporta in JSON/XML. Le modifiche salvano una copia corretta.
   import { schede } from "../lib/schede.svelte.js";
-  import { alberoTag, salvaTag, salvaDoclang, correggi, riordina, riquadroTag } from "../lib/api.js";
+  import { alberoTag, salvaTag, salvaDoclang, correggi, riordina, riquadroTag, marcaArtifact, applicaTabella } from "../lib/api.js";
 
   const s = $derived(schede.schedaAttiva);
   let info = $state(null);
   let caricamento = $state(false);
   let errore = $state(null);
   let esito = $state(null);
-  let modo = $state("naviga"); // "naviga" | "ruoli" | "riordina"
+  let modo = $state("naviga"); // "naviga" | "ruoli" | "riordina" | "artifact" | "tabelle"
 
   // Modifiche in sospeso.
   let ruoliMod = $state({}); // riferimento -> nuovo ruolo
   let ordineTop = $state([]); // elementi di primo livello riordinabili
+  let artifactSel = $state({}); // riferimento -> selezionato per artifact
+  let tabMod = $state({}); // riferimento -> { scope?, rowSpan?, colSpan? } modifiche celle
 
   const RUOLI = ["P","H1","H2","H3","H4","H5","H6","Figure","Table","TR","TH","TD","L","LI","Span","Link","Caption","Note"];
 
@@ -25,6 +27,8 @@
     errore = null;
     info = null;
     ruoliMod = {};
+    artifactSel = {};
+    tabMod = {};
     alberoTag(id)
       .then((r) => {
         if (annullato) return;
@@ -56,7 +60,10 @@
 
   function righe(nodi, prof = 0, acc = []) {
     for (const n of nodi) {
-      acc.push({ prof, ruolo: n.ruolo, alt: n.alt, lang: n.lang, pagina: n.pagina, riferimento: n.riferimento });
+      acc.push({
+        prof, ruolo: n.ruolo, alt: n.alt, lang: n.lang, pagina: n.pagina, riferimento: n.riferimento,
+        scope: n.scope, rowSpan: n.row_span, colSpan: n.col_span,
+      });
       righe(n.figli, prof + 1, acc);
     }
     return acc;
@@ -116,6 +123,45 @@
       esito = `Errore: ${e}`;
     }
   }
+
+  // Registra una modifica a una cella (scope / rowSpan / colSpan).
+  function modCella(rif, campo, valore) {
+    tabMod[rif] = { ...(tabMod[rif] || {}), [campo]: valore };
+  }
+
+  async function salvaTabelle() {
+    esito = null;
+    const celle = Object.entries(tabMod)
+      .map(([riferimento, m]) => ({ riferimento, ...m }))
+      .filter((c) => c.scope !== undefined || c.rowSpan !== undefined || c.colSpan !== undefined);
+    if (!celle.length) {
+      esito = "Nessuna modifica alle celle.";
+      return;
+    }
+    try {
+      const r = await applicaTabella(s.id, celle);
+      if (r) esito = `Copia salvata: ${r.n} cell${r.n === 1 ? "a" : "e"} aggiornat${r.n === 1 ? "a" : "e"}.`;
+    } catch (e) {
+      esito = `Errore: ${e}`;
+    }
+  }
+
+  async function salvaArtifact() {
+    esito = null;
+    const rif = Object.entries(artifactSel)
+      .filter(([, on]) => on)
+      .map(([riferimento]) => riferimento);
+    if (!rif.length) {
+      esito = "Seleziona almeno un elemento da marcare come Artifact.";
+      return;
+    }
+    try {
+      const r = await marcaArtifact(s.id, rif);
+      if (r) esito = `Copia salvata: ${r.n} element${r.n === 1 ? "o" : "i"} marcat${r.n === 1 ? "o" : "i"} come Artifact.`;
+    } catch (e) {
+      esito = `Errore: ${e}`;
+    }
+  }
 </script>
 
 <div class="pannello">
@@ -126,6 +172,8 @@
         <button class:on={modo === "naviga"} onclick={() => (modo = "naviga")}>Naviga</button>
         <button class:on={modo === "ruoli"} onclick={() => (modo = "ruoli")}>Ruoli</button>
         <button class:on={modo === "riordina"} onclick={() => (modo = "riordina")} disabled={ordineTop.length < 2}>Riordina</button>
+        <button class:on={modo === "artifact"} onclick={() => (modo = "artifact")}>Artifact</button>
+        <button class:on={modo === "tabelle"} onclick={() => (modo = "tabelle")}>Tabelle</button>
       </div>
       <div class="azioni">
         <button onclick={() => esporta("json")}>Export JSON</button>
@@ -191,6 +239,61 @@
         {/each}
       </ul>
       <button class="salva" onclick={salvaOrdine}>Salva copia riordinata…</button>
+
+    {:else if modo === "artifact"}
+      <p class="suggerimento">
+        Marca come <b>Artifact</b> gli elementi decorativi (intestazioni, piè di pagina,
+        numeri di pagina): verranno tolti dall'ordine di lettura e gli screen reader li salteranno.
+      </p>
+      <ul class="editor">
+        {#each righe(info.radice).filter((r) => r.riferimento) as r}
+          <li style={`padding-left:${8 + r.prof * 16}px`}>
+            <label class="art">
+              <input type="checkbox" checked={!!artifactSel[r.riferimento]} onchange={(e) => (artifactSel[r.riferimento] = e.target.checked)} />
+              <span class="ruolo">{r.ruolo}</span>
+              {#if r.alt}<span class="alt">alt: {r.alt}</span>{/if}
+            </label>
+            {#if r.pagina != null}<span class="pag">p.{r.pagina + 1}</span>{/if}
+          </li>
+        {/each}
+      </ul>
+      <button class="salva" onclick={salvaArtifact}>Salva copia con artifact…</button>
+
+    {:else if modo === "tabelle"}
+      {@const celle = righe(info.radice).filter((r) => (r.ruolo === "TH" || r.ruolo === "TD") && r.riferimento)}
+      {#if !celle.length}
+        <p class="info">Nessuna cella di tabella (TH/TD) trovata nei tag.</p>
+      {:else}
+        <p class="suggerimento">
+          Imposta l'<b>ambito</b> delle intestazioni (Scope) e le celle unite (RowSpan/ColSpan).
+          Lo Scope dice allo screen reader se un TH vale per la riga, la colonna o entrambe.
+        </p>
+        <ul class="editor">
+          {#each celle as r}
+            <li class="cella">
+              <span class="ruolo">{r.ruolo}</span>
+              {#if r.ruolo === "TH"}
+                <label class="cmp">Scope
+                  <select value={r.scope ?? ""} onchange={(e) => modCella(r.riferimento, "scope", e.target.value)}>
+                    <option value="">(nessuno)</option>
+                    <option value="Row">Riga</option>
+                    <option value="Column">Colonna</option>
+                    <option value="Both">Entrambe</option>
+                  </select>
+                </label>
+              {/if}
+              <label class="cmp">Righe
+                <input type="number" min="1" value={r.rowSpan ?? 1} onchange={(e) => modCella(r.riferimento, "rowSpan", parseInt(e.target.value) || 1)} />
+              </label>
+              <label class="cmp">Col.
+                <input type="number" min="1" value={r.colSpan ?? 1} onchange={(e) => modCella(r.riferimento, "colSpan", parseInt(e.target.value) || 1)} />
+              </label>
+              {#if r.pagina != null}<span class="pag">p.{r.pagina + 1}</span>{/if}
+            </li>
+          {/each}
+        </ul>
+        <button class="salva" onclick={salvaTabelle}>Salva copia tabelle accessibili…</button>
+      {/if}
     {/if}
   {/if}
 </div>
@@ -325,6 +428,35 @@
   .cambiato {
     color: #e7c98a;
     font-size: 11px;
+  }
+  label.art {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+  }
+  label.art input {
+    accent-color: var(--accento);
+    width: 15px;
+    height: 15px;
+  }
+  li.cella {
+    flex-wrap: wrap;
+  }
+  label.cmp {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: var(--testo-soft);
+  }
+  label.cmp input {
+    width: 48px;
+    background: var(--scheda);
+    color: var(--testo);
+    border: 1px solid var(--bordo);
+    border-radius: 6px;
+    padding: 3px 6px;
   }
   .pag {
     margin-left: auto;

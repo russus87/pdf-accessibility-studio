@@ -580,6 +580,85 @@ pub fn genera_segnalibri(
         .map_err(|e| e.to_string())
 }
 
+/// Marca gli elementi indicati come Artifact (li toglie dall'ordine di lettura e
+/// riscrive il loro marked content) e salva una copia. Ritorna quanti marcati.
+#[tauri::command]
+pub fn marca_artifact(
+    id: String,
+    riferimenti: Vec<String>,
+    destinazione: String,
+    stato: State<StatoApp>,
+) -> Result<usize, String> {
+    let path = percorso(&stato, &id)?;
+    pdfa_core::artifact::marca_artifact(&path, std::path::Path::new(&destinazione), &riferimenti)
+        .map_err(|e| e.to_string())
+}
+
+/// Legge i campi del modulo (AcroForm) del PDF.
+#[tauri::command]
+pub fn leggi_form(id: String, stato: State<StatoApp>) -> Result<Vec<pdfa_core::form::CampoModulo>, String> {
+    let path = percorso(&stato, &id)?;
+    pdfa_core::form::leggi(&path).map_err(|e| e.to_string())
+}
+
+/// Un tooltip /TU da impostare su un campo modulo.
+#[derive(serde::Deserialize)]
+pub struct CampoInput {
+    pub riferimento: String,
+    pub tooltip: String,
+}
+
+/// Imposta i tooltip /TU sui campi e (se richiesto) /Tabs /S sulle pagine; salva
+/// una copia. Ritorna quanti tooltip sono stati impostati.
+#[tauri::command]
+pub fn applica_form(
+    id: String,
+    campi: Vec<CampoInput>,
+    tabs_struttura: bool,
+    destinazione: String,
+    stato: State<StatoApp>,
+) -> Result<usize, String> {
+    let path = percorso(&stato, &id)?;
+    let campi: Vec<pdfa_core::form::ModificaCampo> = campi
+        .into_iter()
+        .map(|c| pdfa_core::form::ModificaCampo { riferimento: c.riferimento, tooltip: c.tooltip })
+        .collect();
+    pdfa_core::form::applica(&path, std::path::Path::new(&destinazione), &campi, tabs_struttura)
+        .map_err(|e| e.to_string())
+}
+
+/// Attributi di tabella richiesti per una cella (dal pannello Tabelle).
+#[derive(serde::Deserialize)]
+pub struct CellaInput {
+    pub riferimento: String,
+    pub scope: Option<String>,
+    pub row_span: Option<i64>,
+    pub col_span: Option<i64>,
+}
+
+/// Applica gli attributi di accessibilità alle celle (Scope/RowSpan/ColSpan) e
+/// salva una copia. Ritorna quante celle sono state modificate.
+#[tauri::command]
+pub fn applica_tabella(
+    id: String,
+    celle: Vec<CellaInput>,
+    destinazione: String,
+    stato: State<StatoApp>,
+) -> Result<usize, String> {
+    let path = percorso(&stato, &id)?;
+    let celle: Vec<pdfa_core::tabelle::AttributiCella> = celle
+        .into_iter()
+        .map(|c| pdfa_core::tabelle::AttributiCella {
+            riferimento: c.riferimento,
+            scope: c.scope,
+            row_span: c.row_span,
+            col_span: c.col_span,
+        })
+        .collect();
+    pdfa_core::tabelle::applica(&path, std::path::Path::new(&destinazione), &celle)
+        .map_err(|e| e.to_string())
+}
+
 /// Riordina gli elementi di primo livello (ordine di lettura) e salva una copia.
 #[tauri::command]
 pub fn riordina(

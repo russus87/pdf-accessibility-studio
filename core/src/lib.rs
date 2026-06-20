@@ -8,6 +8,7 @@
 //! Le fasi successive aggiungeranno: validazione accessibilita', sintesi
 //! vocale (ordine logico dei tag), confronto (testo/pixel/tag), export tag.
 
+pub mod artifact;
 pub mod confronto;
 pub mod contrasto;
 pub mod correzione;
@@ -15,6 +16,7 @@ pub mod doclang;
 pub mod documento;
 pub mod errore;
 pub mod export;
+pub mod form;
 pub mod geometria;
 pub mod lettura;
 pub mod metadati;
@@ -24,6 +26,7 @@ pub mod pdfium;
 pub mod ricerca;
 pub mod segnalibri;
 pub mod struttura;
+pub mod tabelle;
 pub mod taggatura;
 pub mod tts;
 pub mod validazione;

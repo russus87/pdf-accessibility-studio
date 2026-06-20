@@ -153,6 +153,61 @@ Alt, cambio ruolo e riordino su un PDF taggato costruito al volo.
 - ✅ **Tema chiaro/scuro** (persistito in localStorage, toggle in toolbar).
 - ✅ **Apri esterno / Stampa**: apre il PDF nel programma di sistema (plugin opener).
 
+## Fase 18 — Marcatura Artifact ✅
+
+- ✅ `core/artifact.rs`: marca uno o piu' StructElem come **Artifact** e salva una
+  copia. Stacca l'elemento (con il sotto-albero) dal `/K` del genitore e riscrive
+  il suo marked content nei content stream da `/Ruolo <</MCID n>> BDC` a
+  `/Artifact BDC` (eliminando l'MCID), cosi' gli screen reader lo saltano.
+- ✅ Comando `marca_artifact` + wrapper `marcaArtifact` (api.js).
+- ✅ Pannello Tag: modalità **Artifact** (caselle di selezione per gli elementi
+  decorativi tipo intestazioni/piè di pagina/numeri di pagina) → salva copia.
+- ✅ Test (`core/tests/artifact.rs`): marcato un paragrafo, sparisce dall'albero e
+  dall'ordine di lettura, il content stream contiene `/Artifact`, il resto resta leggibile.
+- ⏳ Nota: le voci nel ParentTree restano (orfane, innocue). Rifinitura possibile.
+
+## Fase 19 — Editor tabelle ✅
+
+- ✅ `core/tabelle.rs`: scrive sulle celle (TH/TD) l'attributo `/A <</O /Table …>>`
+  con **Scope** (Row/Column/Both) per le intestazioni e **RowSpan/ColSpan** per le
+  celle unite, fondendo con un attributo Table già presente. Salva una copia.
+- ✅ `core/struttura.rs`: il `NodoTag` espone ora `scope`/`row_span`/`col_span`
+  (letti da /A Table), per mostrare e pre-compilare lo stato nella UI.
+- ✅ Comando `applica_tabella` + wrapper `applicaTabella` (api.js; i campi annidati
+  usano snake_case `row_span`/`col_span` perché Tauri non li converte).
+- ✅ Pannello Tag: modalità **Tabelle** con, per ogni cella, select Scope (solo TH)
+  e input RowSpan/ColSpan → salva copia.
+- ✅ Test (`core/tests/tabelle.rs`): Table>TR>[TH,TD], applica Scope=Column al TH e
+  ColSpan=2 al TD, rilettura conferma i valori.
+- ⏳ Rifinitura futura: associazione esplicita TD→TH via Headers/ID (richiede gestione
+  dell'IDTree) e una regola di validazione "TH senza Scope".
+
+## Fase 20 — Form accessibili (AcroForm) ✅
+
+- ✅ `core/form.rs`: legge i campi dell'AcroForm (riferimento, nome /T, tipo /FT,
+  tooltip /TU, pagina — mappata via /Annots), gestendo campi gerarchici e
+  widget uniti. Scrive il **tooltip /TU** (etichetta letta dagli screen reader)
+  sui campi e, opzionalmente, l'ordine di tabulazione strutturale `/Tabs /S` sulle
+  pagine. Salva una copia.
+- ✅ Comandi `leggi_form` / `applica_form` + wrapper `leggiForm` / `applicaForm`.
+- ✅ Nuovo pannello **Moduli** (`PannelloModuli.svelte`): elenco campi con badge
+  "manca", input per l'etichetta, opzione /Tabs, salva copia. Registrato in
+  `App.svelte` e nel rail (gruppo Accessibilità).
+- ✅ Test (`core/tests/form.rs`): legge un campo Tx senza /TU, imposta tooltip e
+  /Tabs /S, rilettura conferma.
+- ⏳ Rifinitura futura: taggare i campi nello StructTree (Form element + OBJR) per la
+  piena conformità PDF/UA.
+
+## Fase 21 — Auto-tag: rifinitura mappatura ruoli ✅
+
+- ✅ `core/doclang.rs::mappa_ruolo`: ampliata la copertura delle etichette Docling
+  verso ruoli PDF/UA dedicati invece del generico `P`:
+  `document_index`→**TOC**, `reference`→**BibEntry**, `form`/`checkbox_*`→**Form**.
+  Confermato che header/footer (`page_header`/`page_footer`→`Artifact`) vengono già
+  esclusi dall'albero dei tag dal generatore (`docling.rs` filtra `ruolo != "Artifact"`).
+- ✅ Test estesi (`doclang::test::mappa_ruoli_estesi`).
+- ⏳ Restano: estrazione MCID con font CID complessi; tagging campi modulo nello StructTree.
+
 ## Idee future ⏳
 
 - ⏳ Anteprime con drag&drop per riordino, miniature nel pannello Pagine
