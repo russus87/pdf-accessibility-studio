@@ -111,3 +111,30 @@ fn auto_remediation_riduce_errori() {
     let (prima, dopo) = pdfa_core::correzione::auto(&input, &out, "it-IT", "Documento di prova").expect("auto");
     assert!(dopo < prima, "gli errori devono diminuire: {prima} -> {dopo}");
 }
+
+#[test]
+fn matterhorn_report() {
+    // PDF taggato senza /Lang: il report deve avere almeno un checkpoint fallito.
+    let input = crea(1, |doc, cat| {
+        let sr = doc.new_object_id();
+        let mut p = Dictionary::new();
+        p.set("Type", nome("StructElem"));
+        p.set("S", nome("P"));
+        let p_id = doc.add_object(p);
+        let mut root = Dictionary::new();
+        root.set("Type", nome("StructTreeRoot"));
+        root.set("K", Object::Array(vec![Object::Reference(p_id)]));
+        doc.set_object(sr, root);
+        let mut mi = Dictionary::new();
+        mi.set("Marked", true);
+        cat.set("MarkInfo", Object::Dictionary(mi));
+        cat.set("StructTreeRoot", Object::Reference(sr));
+    });
+
+    let r = pdfa_core::matterhorn::analizza(&input).expect("matterhorn");
+    assert!(r.voci.len() > 20, "molti checkpoint");
+    assert!(r.falliti >= 1, "lingua mancante => almeno un fallito");
+    assert!(r.manuali >= 1, "alcuni checkpoint sono manuali");
+    let html = pdfa_core::matterhorn::report_html("test", &r);
+    assert!(html.contains("Matterhorn") && html.contains("WCAG"));
+}

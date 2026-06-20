@@ -25,6 +25,7 @@ pub mod form;
 pub mod geometria;
 pub mod intestazioni;
 pub mod lettura;
+pub mod matterhorn;
 pub mod metadati;
 pub mod modello;
 pub mod office;

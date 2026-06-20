@@ -115,6 +115,8 @@ pub fn run() {
             comandi::imposta_segnalibri,
             comandi::split_pdf,
             comandi::sovrapponi_confronto,
+            comandi::matterhorn,
+            comandi::salva_report_matterhorn,
             firme::firme_elenco,
             firme::firma_salva,
             firme::firma_elimina,

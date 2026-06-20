@@ -598,6 +598,17 @@ export async function comprimiImmagini(id, maxPx, qualita) {
   return { dest: destinazione, ...r };
 }
 
+// --- Report Matterhorn (PDF/UA) (Fase 48) ---
+export function matterhorn(id) {
+  return invoke("matterhorn", { id });
+}
+export async function salvaReportMatterhorn(id) {
+  const destinazione = await save({ defaultPath: "matterhorn.html", filters: [{ name: "HTML", extensions: ["html"] }] });
+  if (!destinazione) return false;
+  await invoke("salva_report_matterhorn", { id, destinazione });
+  return true;
+}
+
 // --- Auto-remediation (Fase 43) ---
 export async function autoCorreggi(id, lang) {
   const destinazione = await save({ defaultPath: "accessibile.pdf", filters: [{ name: "PDF", extensions: ["pdf"] }] });

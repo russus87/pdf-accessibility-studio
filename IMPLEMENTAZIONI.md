@@ -396,6 +396,21 @@ Alt, cambio ruolo e riordino su un PDF taggato costruito al volo.
   solo nel 1° → rosso, solo nel 2° → blu, in entrambe → nero. Comando
   `sovrapponi_confronto`; modalità **Sovrapposizione** nella vista Confronto.
 
+## Fase 48 — Report Matterhorn (PDF/UA) + WCAG ✅
+
+- ✅ `core/matterhorn.rs`: report basato sul **Matterhorn Protocol** (PDF/UA, ISO
+  14289-1) su ~26 checkpoint. Collega gli esiti automatici della validazione
+  esistente (tagging, lingua, titolo, DisplayDocTitle, alt, titoli, tabelle, liste,
+  link, ToUnicode, PDF/UA id, moduli/TU) e marca i restanti come **verifica manuale**
+  (artifact, formule, note, layer, firme, contrasto, navigazione…), con i **criteri
+  WCAG** corrispondenti per ogni voce. Stati: superato/fallito/avviso/manuale; flag `conforme`.
+- ✅ `report_html` (export). Comandi `matterhorn` / `salva_report_matterhorn`.
+- ✅ UI: nel pannello Validazione, interruttore **WCAG/PDF-UA ↔ Matterhorn** con
+  checklist colorata, badge WCAG per voce ed export HTML.
+- ✅ Test (`evolutive5.rs::matterhorn_report`): falliti≥1 con lingua mancante, voci manuali presenti.
+- Nota: la validazione WCAG di base era già presente (regole in `validazione.rs`); il
+  report Matterhorn ora espone esplicitamente i criteri WCAG accanto a ogni checkpoint.
+
 ## Idee future ⏳
 
 - ⏳ Anteprime con drag&drop per riordino, miniature nel pannello Pagine

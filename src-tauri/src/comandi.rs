@@ -1412,6 +1412,22 @@ pub fn sovrapponi_confronto(id_a: String, id_b: String, pagina: i32, larghezza: 
     pdfa_core::confronto::sovrapponi_pagine(&a, &b, pagina, larghezza).map_err(|e| e.to_string())
 }
 
+// --- Report Matterhorn (PDF/UA) (Fase 48) -------------------------------------
+
+#[tauri::command]
+pub fn matterhorn(id: String, stato: State<StatoApp>) -> Result<pdfa_core::matterhorn::ReportMatterhorn, String> {
+    let path = percorso(&stato, &id)?;
+    pdfa_core::matterhorn::analizza(&path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn salva_report_matterhorn(id: String, destinazione: String, stato: State<StatoApp>) -> Result<(), String> {
+    let path = percorso(&stato, &id)?;
+    let r = pdfa_core::matterhorn::analizza(&path).map_err(|e| e.to_string())?;
+    let html = pdfa_core::matterhorn::report_html(&nome(&path), &r);
+    std::fs::write(&destinazione, html).map_err(|e| e.to_string())
+}
+
 // --- Campi modulo editabili (Fase 26) -----------------------------------------
 
 /// Un nuovo campo di testo da inserire (dall'editor). Campi annidati snake_case.

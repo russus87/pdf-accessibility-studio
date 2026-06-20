@@ -1,10 +1,35 @@
 <script>
   // Pannello validazione accessibilita': mostra gli esiti delle regole.
   import { schede } from "../lib/schede.svelte.js";
-  import { valida, salvaReportValidazione, ocrInfo, eseguiOcr, contrasto } from "../lib/api.js";
+  import { valida, salvaReportValidazione, ocrInfo, eseguiOcr, contrasto, matterhorn, salvaReportMatterhorn } from "../lib/api.js";
 
   const s = $derived(schede.schedaAttiva);
+  let vista = $state("validazione"); // "validazione" | "matterhorn"
+  let mh = $state(null);
+  let mhCaricamento = $state(false);
   let report = $state(null);
+
+  async function caricaMatterhorn() {
+    vista = "matterhorn";
+    if (mh || !s) return;
+    mhCaricamento = true;
+    try {
+      mh = await matterhorn(s.id);
+    } catch (e) {
+      esito = `Matterhorn: ${e}`;
+    } finally {
+      mhCaricamento = false;
+    }
+  }
+  async function esportaMatterhorn() {
+    try {
+      const ok = await salvaReportMatterhorn(s.id);
+      if (ok) esito = "Report Matterhorn HTML salvato.";
+    } catch (e) {
+      esito = `Errore: ${e}`;
+    }
+  }
+  const mhBadge = { superato: "ok", fallito: "errore", avviso: "avviso", manuale: "man" };
   let caricamento = $state(false);
   let errore = $state(null);
   let esito = $state(null);
@@ -69,6 +94,7 @@
     caricamento = true;
     errore = null;
     report = null;
+    mh = null;
     valida(id)
       .then((r) => !annullato && (report = r))
       .catch((e) => !annullato && (errore = String(e)))
@@ -76,23 +102,31 @@
     return () => (annullato = true);
   });
 
-  const icona = { errore: "✕", avviso: "!", ok: "✓" };
+  const icona = { errore: "✕", avviso: "!", ok: "✓", man: "?" };
 </script>
 
 <div class="pannello">
   <header>
     <h3>Validazione accessibilità</h3>
-    {#if report}
+    <div class="modi">
+      <button class:on={vista === "validazione"} onclick={() => (vista = "validazione")}>WCAG/PDF-UA</button>
+      <button class:on={vista === "matterhorn"} onclick={caricaMatterhorn} disabled={!s}>Matterhorn</button>
+    </div>
+    {#if vista === "validazione" && report}
       <div class="azioni">
         <button onclick={() => esporta("html")}>Report HTML</button>
         <button onclick={() => esporta("pdf")}>Report PDF</button>
+      </div>
+    {:else if vista === "matterhorn" && mh}
+      <div class="azioni">
+        <button onclick={esportaMatterhorn}>Report HTML</button>
       </div>
     {/if}
   </header>
 
   {#if esito}<p class="esito">{esito}</p>{/if}
 
-  {#if s}
+  {#if s && vista === "validazione"}
     <div class="ocr contr">
       <span class="ocr-tit">Contrasto pagina {s.pagina + 1} (stima):</span>
       <button onclick={analizzaContrasto} disabled={contrInCorso}>{contrInCorso ? "…" : "Analizza"}</button>
@@ -117,7 +151,31 @@
     </div>
   {/if}
 
-  {#if caricamento}
+  {#if vista === "matterhorn"}
+    {#if mhCaricamento}
+      <p class="info">Analisi Matterhorn…</p>
+    {:else if mh}
+      <div class="riepilogo">
+        <span class="badge ok2">{mh.superati} superati</span>
+        <span class="badge err">{mh.falliti} falliti</span>
+        <span class="badge avv">{mh.avvisi} avvisi</span>
+        <span class="badge man">{mh.manuali} manuali</span>
+      </div>
+      <ul>
+        {#each mh.voci as v}
+          <li class={mhBadge[v.stato]}>
+            <span class="segno {mhBadge[v.stato]}">{icona[mhBadge[v.stato]] || "?"}</span>
+            <div>
+              <div class="regola">{v.checkpoint} · {v.titolo} {#if v.wcag !== "—"}<span class="wcag">WCAG {v.wcag}</span>{/if}</div>
+              <div class="msg">{v.dettaglio}</div>
+            </div>
+          </li>
+        {/each}
+      </ul>
+    {:else}
+      <p class="info">Premi “Matterhorn” per generare il report.</p>
+    {/if}
+  {:else if caricamento}
     <p class="info">Analisi in corso…</p>
   {:else if errore}
     <p class="err">{errore}</p>
@@ -154,6 +212,26 @@
   h3 {
     margin: 0 0 8px;
     font-size: 15px;
+  }
+  .modi {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+  .modi button {
+    flex: 1;
+    background: var(--scheda);
+    color: var(--testo);
+    border: 1px solid var(--bordo);
+    border-radius: 6px;
+    padding: 5px 8px;
+    cursor: pointer;
+    font-size: 12px;
+  }
+  .modi button.on {
+    background: var(--accento);
+    border-color: var(--accento);
+    color: #fff;
   }
   .azioni {
     display: flex;
@@ -240,6 +318,26 @@
   .badge.avv {
     background: #4a3a1f;
     color: #ffcf7a;
+  }
+  .badge.ok2 {
+    background: #173021;
+    color: #7ad08f;
+  }
+  .badge.man {
+    background: #2b2f36;
+    color: #c4ccd6;
+  }
+  .segno.man {
+    background: #57606a;
+  }
+  .wcag {
+    font-size: 10px;
+    color: #7ab0ff;
+    border: 1px solid #2e4a6a;
+    border-radius: 8px;
+    padding: 0 6px;
+    margin-left: 6px;
+    font-weight: normal;
   }
   ul {
     list-style: none;
