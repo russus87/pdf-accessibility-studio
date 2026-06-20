@@ -560,6 +560,44 @@ export function riepilogoAnnotazioni(id) {
   return invoke("riepilogo_annotazioni", { id });
 }
 
+// --- Ricerca full-text multi-file (Fase 39) ---
+/** Sceglie una cartella e cerca `query` in tutti i PDF. Ritorna i risultati o null. */
+export async function ricercaMulti(query) {
+  const cartella = await open({ directory: true });
+  if (!cartella) return null;
+  return invoke("ricerca_multi", { cartella, query });
+}
+
+// --- TOC automatico (Fase 41) ---
+export async function generaToc(id) {
+  const destinazione = await save({ defaultPath: "con-sommario.pdf", filters: [{ name: "PDF", extensions: ["pdf"] }] });
+  if (!destinazione) return null;
+  const n = await invoke("genera_toc", { id, destinazione });
+  return { dest: destinazione, n };
+}
+
+// --- Export Office (Fase 40) ---
+export async function esportaDocx(id) {
+  const destinazione = await save({ defaultPath: "documento.docx", filters: [{ name: "Word", extensions: ["docx"] }] });
+  if (!destinazione) return false;
+  await invoke("esporta_docx", { id, destinazione });
+  return true;
+}
+export async function esportaXlsx(id) {
+  const destinazione = await save({ defaultPath: "tabelle.xlsx", filters: [{ name: "Excel", extensions: ["xlsx"] }] });
+  if (!destinazione) return false;
+  await invoke("esporta_xlsx", { id, destinazione });
+  return true;
+}
+
+// --- Downsample immagini (Fase 42) ---
+export async function comprimiImmagini(id, maxPx, qualita) {
+  const destinazione = await save({ defaultPath: "compresso.pdf", filters: [{ name: "PDF", extensions: ["pdf"] }] });
+  if (!destinazione) return null;
+  const r = await invoke("comprimi_immagini", { id, maxPx, qualita, destinazione });
+  return { dest: destinazione, ...r };
+}
+
 // --- Libreria firme (Fase 25) ---
 /** Elenco firme salvate: [{ nome, dati_base64 }]. */
 export function firmeElenco() {

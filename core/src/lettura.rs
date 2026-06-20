@@ -422,6 +422,108 @@ fn raccogli_testo_k(
     }
 }
 
+/// Estrae le tabelle del documento come righe di celle (testo). Vuoto se non
+/// taggato o senza tabelle. Usato dall'export verso Excel.
+pub fn tabelle(percorso: &std::path::Path) -> Risultato<Vec<Vec<Vec<String>>>> {
+    let doc = Document::load(percorso).map_err(|e| Errore::Pdfium(format!("lopdf: {e}")))?;
+    let mut idx_pagina: HashMap<ObjectId, i32> = HashMap::new();
+    for (num, id) in doc.get_pages() {
+        idx_pagina.insert(id, num as i32 - 1);
+    }
+    let mut testi: HashMap<(i32, i32), String> = HashMap::new();
+    for (num, id) in doc.get_pages() {
+        estrai_pagina(&doc, id, num as i32 - 1, &mut testi);
+    }
+
+    let Some(catalog) = deref(&doc, doc.trailer.get(b"Root").ok()).and_then(|o| o.as_dict().ok()) else {
+        return Ok(Vec::new());
+    };
+    let Some(sr) = deref(&doc, catalog.get(b"StructTreeRoot").ok()).and_then(|o| o.as_dict().ok()) else {
+        return Ok(Vec::new());
+    };
+
+    let mut out = Vec::new();
+    let mut visti = std::collections::HashSet::new();
+    if let Ok(k) = sr.get(b"K") {
+        trova_tabelle(&doc, k, None, &testi, &idx_pagina, &mut out, &mut visti, 0);
+    }
+    Ok(out)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn trova_tabelle(
+    doc: &Document, obj: &Object, pagina: Option<i32>,
+    testi: &HashMap<(i32, i32), String>, idx: &HashMap<ObjectId, i32>,
+    out: &mut Vec<Vec<Vec<String>>>, visti: &mut std::collections::HashSet<ObjectId>, prof: usize,
+) {
+    if prof > 80 { return; }
+    if let Ok(id) = obj.as_reference() { if !visti.insert(id) { return; } }
+    let Some(ris) = deref(doc, Some(obj)) else { return };
+    match ris {
+        Object::Array(arr) => { for o in arr { trova_tabelle(doc, o, pagina, testi, idx, out, visti, prof + 1); } }
+        Object::Dictionary(d) => {
+            let p = d.get(b"Pg").ok().and_then(|o| o.as_reference().ok()).and_then(|id| idx.get(&id).copied()).or(pagina);
+            if let Ok(s) = d.get(b"S").and_then(|o| o.as_name()) {
+                if s == b"Table" {
+                    let mut righe = Vec::new();
+                    if let Ok(k) = d.get(b"K") { raccogli_righe(doc, k, p, testi, idx, &mut righe); }
+                    if !righe.is_empty() { out.push(righe); }
+                    return;
+                }
+            }
+            if let Ok(k) = d.get(b"K") { trova_tabelle(doc, k, p, testi, idx, out, visti, prof + 1); }
+        }
+        _ => {}
+    }
+}
+
+/// Raccoglie le righe (TR) di una tabella in vettori di celle (testo).
+fn raccogli_righe(
+    doc: &Document, k: &Object, pagina: Option<i32>,
+    testi: &HashMap<(i32, i32), String>, idx: &HashMap<ObjectId, i32>, out: &mut Vec<Vec<String>>,
+) {
+    let Some(ris) = deref(doc, Some(k)) else { return };
+    match ris {
+        Object::Array(arr) => { for o in arr { raccogli_righe(doc, o, pagina, testi, idx, out); } }
+        Object::Dictionary(d) => {
+            let p = d.get(b"Pg").ok().and_then(|o| o.as_reference().ok()).and_then(|id| idx.get(&id).copied()).or(pagina);
+            match d.get(b"S").and_then(|o| o.as_name()) {
+                Ok(s) if s == b"TR" => {
+                    let mut celle = Vec::new();
+                    if let Ok(k2) = d.get(b"K") { raccogli_celle(doc, k2, p, testi, idx, &mut celle); }
+                    out.push(celle);
+                }
+                // Contenitori (THead/TBody/TFoot) o altro: scendi.
+                _ => { if let Ok(k2) = d.get(b"K") { raccogli_righe(doc, k2, p, testi, idx, out); } }
+            }
+        }
+        _ => {}
+    }
+}
+
+/// Raccoglie le celle (TH/TD) di una riga.
+fn raccogli_celle(
+    doc: &Document, k: &Object, pagina: Option<i32>,
+    testi: &HashMap<(i32, i32), String>, idx: &HashMap<ObjectId, i32>, out: &mut Vec<String>,
+) {
+    let Some(ris) = deref(doc, Some(k)) else { return };
+    match ris {
+        Object::Array(arr) => { for o in arr { raccogli_celle(doc, o, pagina, testi, idx, out); } }
+        Object::Dictionary(d) => {
+            let p = d.get(b"Pg").ok().and_then(|o| o.as_reference().ok()).and_then(|id| idx.get(&id).copied()).or(pagina);
+            match d.get(b"S").and_then(|o| o.as_name()) {
+                Ok(s) if s == b"TH" || s == b"TD" => {
+                    let mut buf = String::new();
+                    if let Ok(k2) = d.get(b"K") { raccogli_testo_k(doc, k2, p, testi, idx, &mut buf, 0); }
+                    out.push(buf.split_whitespace().collect::<Vec<_>>().join(" "));
+                }
+                _ => { if let Ok(k2) = d.get(b"K") { raccogli_celle(doc, k2, p, testi, idx, out); } }
+            }
+        }
+        _ => {}
+    }
+}
+
 /// Converte un riferimento "numero_generazione" in un ObjectId.
 fn parse_riferimento(s: &str) -> Option<ObjectId> {
     let (n, g) = s.split_once('_')?;

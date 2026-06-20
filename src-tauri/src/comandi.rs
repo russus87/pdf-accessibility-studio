@@ -1247,6 +1247,77 @@ pub fn riepilogo_annotazioni(id: String, stato: State<StatoApp>) -> Result<Vec<p
     pdfa_core::annotazioni::riepilogo(&path).map_err(|e| e.to_string())
 }
 
+// --- Ricerca full-text multi-file (Fase 39) -----------------------------------
+
+#[derive(Serialize)]
+pub struct RisultatoMulti {
+    pub file: String,
+    pub pagina: i32,
+    pub contesto: String,
+}
+
+/// Cerca `query` in tutti i PDF della cartella (ricorsivo). Limita i risultati.
+#[tauri::command]
+pub fn ricerca_multi(cartella: String, query: String) -> Result<Vec<RisultatoMulti>, String> {
+    if query.trim().is_empty() {
+        return Ok(Vec::new());
+    }
+    let mut out = Vec::new();
+    let mut pile = vec![std::path::PathBuf::from(&cartella)];
+    while let Some(dir) = pile.pop() {
+        let Ok(voci) = std::fs::read_dir(&dir) else { continue };
+        for v in voci.flatten() {
+            let p = v.path();
+            if p.is_dir() {
+                pile.push(p);
+            } else if p.extension().and_then(|e| e.to_str()).map(|e| e.eq_ignore_ascii_case("pdf")).unwrap_or(false) {
+                if let Ok(occ) = pdfa_core::ricerca::cerca(&p, &query) {
+                    let nome = p.to_string_lossy().into_owned();
+                    for o in occ {
+                        out.push(RisultatoMulti { file: nome.clone(), pagina: o.pagina, contesto: o.contesto });
+                        if out.len() >= 500 {
+                            return Ok(out);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    Ok(out)
+}
+
+// --- TOC automatico (Fase 41) -------------------------------------------------
+
+#[tauri::command]
+pub fn genera_toc(id: String, destinazione: String, stato: State<StatoApp>) -> Result<usize, String> {
+    let path = percorso(&stato, &id)?;
+    pdfa_core::toc::genera(&path, std::path::Path::new(&destinazione)).map_err(|e| e.to_string())
+}
+
+// --- Export Office (Fase 40) --------------------------------------------------
+
+#[tauri::command]
+pub fn esporta_docx(id: String, destinazione: String, stato: State<StatoApp>) -> Result<(), String> {
+    let path = percorso(&stato, &id)?;
+    pdfa_core::office::pdf_a_docx(&path, std::path::Path::new(&destinazione)).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn esporta_xlsx(id: String, destinazione: String, stato: State<StatoApp>) -> Result<(), String> {
+    let path = percorso(&stato, &id)?;
+    pdfa_core::office::pdf_a_xlsx(&path, std::path::Path::new(&destinazione)).map_err(|e| e.to_string())
+}
+
+// --- Downsample immagini (Fase 42) --------------------------------------------
+
+#[tauri::command]
+pub fn comprimi_immagini(id: String, max_px: u32, qualita: u8, destinazione: String, stato: State<StatoApp>) -> Result<EsitoOttim, String> {
+    let path = percorso(&stato, &id)?;
+    let (prima, dopo) = pdfa_core::ottimizzazione::comprimi_immagini(&path, std::path::Path::new(&destinazione), max_px, qualita)
+        .map_err(|e| e.to_string())?;
+    Ok(EsitoOttim { prima, dopo })
+}
+
 // --- Campi modulo editabili (Fase 26) -----------------------------------------
 
 /// Un nuovo campo di testo da inserire (dall'editor). Campi annidati snake_case.

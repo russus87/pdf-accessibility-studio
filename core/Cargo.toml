@@ -27,6 +27,8 @@ base64 = "0.22"
 # Motore di template per generare PDF da modello HTML con variabili, flussi
 # ({{#each}}) e condizioni ({{#if}}) alimentati da dati JSON.
 handlebars = "6"
+# Pacchettizzazione OOXML (.docx / .xlsx sono archivi ZIP).
+zip = { version = "2", default-features = false, features = ["deflate"] }
 # Parsing del font incorporato (glifi, larghezze, cmap) per generare il PDF
 # taggato con un layer di testo invisibile e ToUnicode estraibile.
 ttf-parser = "0.25"

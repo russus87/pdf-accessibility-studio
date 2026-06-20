@@ -340,6 +340,33 @@ Alt, cambio ruolo e riordino su un PDF taggato costruito al volo.
   Comandi `annota` / `riepilogo_annotazioni`. Strumenti **Evidenzia** e **Nota**
   nell'Editor. Test (applica + riepilogo) in `evolutive3.rs`.
 
+## Fase 39 — Libreria & ricerca full-text multi-file ✅
+
+- ✅ Comando `ricerca_multi`: cerca una stringa in tutti i PDF di una cartella
+  (ricorsivo, max 500 risultati) riusando `ricerca::cerca`. Nuovo pannello
+  **Libreria** (`PannelloLibreria.svelte`): risultati cliccabili che aprono il file
+  alla pagina. Disponibile anche senza un documento aperto.
+
+## Fase 40 — PDF → Word / Excel ✅
+
+- ✅ `core/office.rs` (crate `zip`): `pdf_a_docx` (titoli/paragrafi dall'ordine dei
+  tag → OOXML WordprocessingML) e `pdf_a_xlsx` (tabelle → SpreadsheetML, fallback
+  testo). `core/lettura.rs::tabelle` estrae le tabelle (righe×celle) dai tag.
+  Comandi `esporta_docx` / `esporta_xlsx`; pulsanti in Strumenti → Estrai. Test in `evolutive4.rs`.
+
+## Fase 41 — Sommario (TOC) automatico ✅
+
+- ✅ `core/toc.rs`: costruisce una pagina indice dai titoli (con numeri di pagina)
+  via HTML→PDF e la antepone al documento. Comando `genera_toc`; pulsante in
+  Strumenti → Numeri. Test: pagina indice + originale.
+
+## Fase 42 — Downsample immagini ✅
+
+- ✅ `core/ottimizzazione.rs::comprimi_immagini`: riduce la risoluzione delle
+  immagini JPEG (DCTDecode) più larghe di una soglia, ricomprimendole a una qualità
+  data, poi prune+compress. Comando `comprimi_immagini`; controlli in Strumenti →
+  Ottimizza. Test: no-op valido su PDF senza immagini.
+
 ## Idee future ⏳
 
 - ⏳ Anteprime con drag&drop per riordino, miniature nel pannello Pagine

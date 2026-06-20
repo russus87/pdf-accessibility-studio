@@ -69,12 +69,13 @@
   import PannelloModuli from "./components/PannelloModuli.svelte";
   import PannelloStrumenti from "./components/PannelloStrumenti.svelte";
   import PannelloAI from "./components/PannelloAI.svelte";
+  import PannelloLibreria from "./components/PannelloLibreria.svelte";
   import Confronto from "./components/Confronto.svelte";
   import Creatore from "./components/Creatore.svelte";
   import Editor from "./components/Editor.svelte";
 
   const lateralePannello = $derived(
-    ["valida", "indice", "tag", "autotag", "leggi", "correggi", "pagine", "cerca", "metadati", "moduli", "strumenti", "ai"].includes(schede.pannello) ? schede.pannello : null,
+    ["valida", "indice", "tag", "autotag", "leggi", "correggi", "pagine", "cerca", "metadati", "moduli", "strumenti", "ai", "libreria"].includes(schede.pannello) ? schede.pannello : null,
   );
 </script>
 
@@ -117,7 +118,8 @@
             {:else if lateralePannello === "metadati"}<PannelloMetadati />
             {:else if lateralePannello === "moduli"}<PannelloModuli />
             {:else if lateralePannello === "strumenti"}<PannelloStrumenti />
-            {:else if lateralePannello === "ai"}<PannelloAI />{/if}
+            {:else if lateralePannello === "ai"}<PannelloAI />
+            {:else if lateralePannello === "libreria"}<PannelloLibreria />{/if}
           </aside>
         {/if}
       </div>

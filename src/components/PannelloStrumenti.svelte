@@ -6,6 +6,7 @@
     pdfProtetto, proteggiPdf, sbloccaPdf,
     esportaImmagini, creaPdfDaImmagini, numeraPagine,
     ottimizza, esportaContenuto, batch,
+    generaToc, esportaDocx, esportaXlsx, comprimiImmagini,
   } from "../lib/api.js";
 
   const s = $derived(schede.schedaAttiva);
@@ -29,6 +30,9 @@
 
   // Numerazione.
   let num = $state({ testo: "Pagina {n} di {tot}", dimPt: 11, colore: "#444444", margineMm: 12, ancora: "basso-centro", inizio: 1 });
+
+  // Downsample.
+  let ds = $state({ maxPx: 1500, qualita: 70 });
 
   // Batch.
   let batchOp = $state("ottimizza");
@@ -88,6 +92,25 @@
   async function estrai(formato) {
     const ok = await azione(() => esportaContenuto(s.id, formato));
     if (ok) esito = { ok: true, msg: `Esportato in ${formato.toUpperCase()}.` };
+  }
+  async function docx() {
+    const ok = await azione(() => esportaDocx(s.id));
+    if (ok) esito = { ok: true, msg: "Esportato in Word (.docx)." };
+  }
+  async function xlsx() {
+    const ok = await azione(() => esportaXlsx(s.id));
+    if (ok) esito = { ok: true, msg: "Esportato in Excel (.xlsx)." };
+  }
+  async function toc() {
+    const r = await azione(() => generaToc(s.id));
+    if (r) esito = { ok: true, dest: r.dest, msg: `Sommario con ${r.n} voci aggiunto.` };
+  }
+  async function downsample() {
+    const r = await azione(() => comprimiImmagini(s.id, ds.maxPx, ds.qualita));
+    if (r) {
+      const perc = r.prima ? Math.round((1 - r.dopo / r.prima) * 100) : 0;
+      esito = { ok: true, dest: r.dest, msg: `Da ${Math.round(r.prima / 1024)} KB a ${Math.round(r.dopo / 1024)} KB (−${perc}%).` };
+    }
   }
   async function eseguiBatch() {
     batchRis = [];
@@ -155,6 +178,9 @@
           <label>Margine mm<input type="number" bind:value={num.margineMm} /></label>
         </div>
         <button class="vai" onclick={numera}>Applica e salva…</button>
+        <div class="cap">Sommario (TOC)</div>
+        <p class="hint">Crea una pagina indice dai titoli del documento.</p>
+        <button class="vai" onclick={toc}>Genera sommario…</button>
       </div>
 
     {:else if sezione === "ottimizza"}
@@ -162,6 +188,13 @@
         <div class="cap">Riduci la dimensione del PDF</div>
         <p class="hint">Rimuove gli oggetti inutilizzati e ricomprime gli stream.</p>
         <button class="vai" onclick={ottim}>Ottimizza e salva…</button>
+        <div class="cap">Comprimi immagini</div>
+        <p class="hint">Riduce la risoluzione delle immagini JPEG grandi.</p>
+        <div class="riga">
+          <label>Max px<input type="number" min="200" bind:value={ds.maxPx} /></label>
+          <label>Qualità<input type="number" min="10" max="100" bind:value={ds.qualita} /></label>
+        </div>
+        <button class="vai" onclick={downsample}>Comprimi immagini e salva…</button>
       </div>
 
     {:else if sezione === "estrai"}
@@ -172,6 +205,11 @@
           <button class="vai" onclick={() => estrai("txt")}>Testo</button>
           <button class="vai" onclick={() => estrai("html")}>HTML</button>
           <button class="vai" onclick={() => estrai("markdown")}>Markdown</button>
+        </div>
+        <div class="cap">Office</div>
+        <div class="riga">
+          <button class="vai" onclick={docx}>Word (.docx)</button>
+          <button class="vai" onclick={xlsx}>Excel (.xlsx)</button>
         </div>
       </div>
 
