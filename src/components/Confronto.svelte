@@ -4,8 +4,11 @@
   import { schede } from "../lib/schede.svelte.js";
   import { confronta, confrontaImmagine, salvaReport, sovrapponiConfronto } from "../lib/api.js";
 
-  let idA = $state(schede.schede[0]?.id ?? "");
-  let idB = $state(schede.schede[1]?.id ?? "");
+  // Solo le schede PDF possono essere confrontate.
+  const pdf = $derived(schede.schede.filter((s) => s.tipo === "pdf"));
+
+  let idA = $state(schede.schede.filter((s) => s.tipo === "pdf")[0]?.id ?? "");
+  let idB = $state(schede.schede.filter((s) => s.tipo === "pdf")[1]?.id ?? "");
   let modalita = $state("testo"); // "testo" | "tag" | "immagine"
 
   let comb = $state(null); // { testo, tag }
@@ -80,13 +83,13 @@
     <div class="scelte">
       <label>A
         <select bind:value={idA}>
-          {#each schede.schede as s}<option value={s.id}>{s.nome}</option>{/each}
+          {#each pdf as s}<option value={s.id}>{s.nome}</option>{/each}
         </select>
       </label>
       <span class="vs">vs</span>
       <label>B
         <select bind:value={idB}>
-          {#each schede.schede as s}<option value={s.id}>{s.nome}</option>{/each}
+          {#each pdf as s}<option value={s.id}>{s.nome}</option>{/each}
         </select>
       </label>
     </div>

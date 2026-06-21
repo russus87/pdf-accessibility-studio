@@ -1,34 +1,85 @@
-/* Tema scuro "studio" — ispirato agli strumenti pro ma con identita' propria.
-   Palette neutra fredda con accento ambra per distinguersi dal rosso Adobe. */
+/* Tema "studio" — palette neutra fredda con accento ambra, ispirata a
+   VS Code (struttura activity-bar + sidebar) e Acrobat Pro (pannelli strumenti),
+   con identita' propria. I nomi storici delle variabili sono mantenuti per
+   compatibilita' con i pannelli esistenti; i token nuovi (--bg-*, --r-*, --ombra)
+   servono alla nuova shell. */
 :root {
-  --sfondo: #1f232a;
-  --tela: #14171c;
-  --barra: #272c34;
-  --scheda: #2e343d;
-  --bordo: #3a414b;
-  --testo: #e8ebef;
+  /* superfici */
+  --tela: #14171b; /* tela del documento, la piu' scura */
+  --sfondo: #1e2228; /* sfondo dei pannelli/aree */
+  --bg-attivita: #181b21; /* activity bar (rail icone) */
+  --bg-sidebar: #20242b; /* pannello laterale */
+  --barra: #23272f; /* toolbar e intestazioni */
+  --bg-stato: #181b21; /* barra di stato */
+  --scheda: #2b313a; /* controlli, input, schede inattive */
+  --hover: #333a44;
+  --attivo: #3a424e;
+
+  /* bordi */
+  --bordo: #333944;
+  --bordo-soft: #272c34;
+
+  /* testo */
+  --testo: #e6e9ee;
   --testo-soft: #9aa3af;
+  --testo-debole: #6b7280;
+
+  /* accento ambra (identita' propria, distinta dal rosso Adobe) */
   --accento: #e0922f;
-  --accento-soft: #3a3a42;
+  --accento-testo: #f0b266;
+  --accento-tenue: rgba(224, 146, 47, 0.16);
+  --accento-soft: #3a3a42; /* storico, retrocompat */
+
+  /* stato */
+  --ok: #5cc98a;
+  --ok-tenue: rgba(92, 201, 138, 0.16);
   --errore: #ff8d8d;
   --errore-sfondo: #3a2122;
+  --attenzione: #f0c674;
+
+  /* raggi, ombre, transizioni */
+  --r-1: 4px;
+  --r-2: 6px;
+  --r-3: 9px;
+  --ombra: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --ombra-pop: 0 8px 28px rgba(0, 0, 0, 0.5);
+  --transizione: 120ms ease;
 
   color-scheme: dark;
 }
 
 /* Tema chiaro */
 :root[data-tema="chiaro"] {
-  --sfondo: #f4f5f7;
-  --tela: #e7e9ee;
-  --barra: #e9ebef;
-  --scheda: #dfe2e8;
-  --bordo: #c7ccd4;
+  --tela: #d9dce2;
+  --sfondo: #f6f7f9;
+  --bg-attivita: #ebedf1;
+  --bg-sidebar: #f0f1f4;
+  --barra: #eceef2;
+  --bg-stato: #e7e9ee;
+  --scheda: #e2e5ea;
+  --hover: #dadde3;
+  --attivo: #ccd0d8;
+
+  --bordo: #cdd2da;
+  --bordo-soft: #dde0e6;
+
   --testo: #1d2127;
   --testo-soft: #5b6470;
+  --testo-debole: #8b929d;
+
   --accento: #c9781f;
+  --accento-testo: #a85f12;
+  --accento-tenue: rgba(201, 120, 31, 0.14);
   --accento-soft: #d8dbe1;
+
+  --ok: #2e9e63;
+  --ok-tenue: rgba(46, 158, 99, 0.14);
   --errore: #b3261e;
   --errore-sfondo: #f7d9d7;
+  --attenzione: #b07d12;
+
+  --ombra: 0 2px 8px rgba(20, 24, 32, 0.12);
+  --ombra-pop: 0 8px 28px rgba(20, 24, 32, 0.18);
 
   color-scheme: light;
 }
@@ -44,11 +95,26 @@ body {
   background: var(--sfondo);
   color: var(--testo);
   font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
-  font-size: 14px;
+  font-size: 13.5px;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 #app {
   height: 100%;
+}
+
+/* Controlli di base coerenti in tutta l'app. */
+button,
+input,
+textarea,
+select {
+  font-family: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accento);
+  outline-offset: 1px;
 }
 
 ::-webkit-scrollbar {
@@ -58,5 +124,14 @@ body {
 ::-webkit-scrollbar-thumb {
   background: var(--bordo);
   border-radius: 6px;
-  border: 3px solid var(--tela);
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--attivo);
+  background-clip: padding-box;
+  border: 3px solid transparent;
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
 }
