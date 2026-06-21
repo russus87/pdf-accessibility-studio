@@ -1128,8 +1128,15 @@ pub fn inserisci_pagine(id: String, altro: String, posizione: u32, destinazione:
 /// file `destinazione`; altrimenti li salva nella cartella `destinazione` come
 /// documento-1.pdf, documento-2.pdf, … Ritorna il numero di documenti generati.
 #[tauri::command]
-pub fn stampa_unione(modello: String, dati: String, combina: bool, destinazione: String) -> Result<usize, String> {
-    let pdfs = pdfa_core::modello::genera_unione(&modello, &dati).map_err(|e| e.to_string())?;
+pub fn stampa_unione(
+    modello: String,
+    dati: String,
+    combina: bool,
+    destinazione: String,
+    opzioni: Option<pdfa_core::modello::OpzioniPagina>,
+) -> Result<usize, String> {
+    let opz = opzioni.unwrap_or_default();
+    let pdfs = pdfa_core::modello::genera_unione_opz(&modello, &dati, &opz).map_err(|e| e.to_string())?;
     if combina {
         // Scrive ogni PDF in un temporaneo e li unisce.
         let dir = std::env::temp_dir().join(format!("pdfa_unione_{}", std::process::id()));
@@ -1494,9 +1501,22 @@ pub fn anteprima_modello(modello: String, dati: String) -> Result<String, String
 
 /// Genera il PDF dal modello + dati e lo salva in `destinazione`.
 #[tauri::command]
-pub fn genera_da_modello(modello: String, dati: String, destinazione: String) -> Result<(), String> {
-    let pdf = pdfa_core::modello::genera_pdf(&modello, &dati).map_err(|e| e.to_string())?;
-    std::fs::write(&destinazione, pdf).map_err(|e| e.to_string())
+pub fn genera_da_modello(
+    modello: String,
+    dati: String,
+    destinazione: String,
+    opzioni: Option<pdfa_core::modello::OpzioniPagina>,
+    header: Option<String>,
+    footer: Option<String>,
+    stile: Option<String>,
+) -> Result<(), String> {
+    let opz = opzioni.unwrap_or_default();
+    let h = header.unwrap_or_default();
+    let f = footer.unwrap_or_default();
+    let s = stile.unwrap_or_default();
+    pdfa_core::modello::genera_impaginato(std::path::Path::new(&destinazione), &modello, &dati, &h, &f, &s, &opz)
+        .map(|_| ())
+        .map_err(|e| e.to_string())
 }
 
 /// Legge i campi del modulo (AcroForm) del PDF.

@@ -378,13 +378,13 @@ export function anteprimaModello(modello, dati) {
   return invoke("anteprima_modello", { modello, dati });
 }
 /** Genera il PDF dal modello + dati e lo salva; ritorna il percorso o null. */
-export async function generaDaModello(modello, dati) {
+export async function generaDaModello(modello, dati, opzioni = null, header = "", footer = "", stile = "") {
   const destinazione = await save({
     defaultPath: "documento.pdf",
     filters: [{ name: "PDF", extensions: ["pdf"] }],
   });
   if (!destinazione) return null;
-  await invoke("genera_da_modello", { modello, dati, destinazione });
+  await invoke("genera_da_modello", { modello, dati, destinazione, opzioni, header, footer, stile });
   return destinazione;
 }
 
@@ -526,7 +526,7 @@ export async function inserisciPagine(id, posizione) {
 }
 
 // --- Stampa unione / mail merge (Fase 36) ---
-export async function stampaUnione(modello, dati, combina) {
+export async function stampaUnione(modello, dati, combina, opzioni = null) {
   let destinazione;
   if (combina) {
     destinazione = await save({ defaultPath: "unione.pdf", filters: [{ name: "PDF", extensions: ["pdf"] }] });
@@ -534,7 +534,7 @@ export async function stampaUnione(modello, dati, combina) {
     destinazione = await open({ directory: true });
   }
   if (!destinazione) return null;
-  const n = await invoke("stampa_unione", { modello, dati, combina: !!combina, destinazione });
+  const n = await invoke("stampa_unione", { modello, dati, combina: !!combina, destinazione, opzioni });
   return { n, combina: !!combina, dest: destinazione };
 }
 
