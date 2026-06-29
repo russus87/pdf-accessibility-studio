@@ -21,6 +21,22 @@
   let imgCaricamento = $state(false);
   let imgSovr = $state(null);
 
+  // Numero massimo di pagine confrontabili = minimo fra i due documenti.
+  const schedaA = $derived(pdf.find((s) => s.id === idA));
+  const schedaB = $derived(pdf.find((s) => s.id === idB));
+  const maxPagine = $derived(Math.max(1, Math.min(schedaA?.pagine ?? 1, schedaB?.pagine ?? 1)));
+
+  // Imposta la pagina (input 1-based) tenendola dentro i limiti, 0-based.
+  function impostaPagina(v) {
+    const n = parseInt(v, 10);
+    const p = Number.isFinite(n) ? n - 1 : 0;
+    pagina = Math.min(Math.max(0, p), maxPagine - 1);
+  }
+  // Se cambiano i documenti e la pagina corrente non esiste più, la riallinea.
+  $effect(() => {
+    if (pagina > maxPagine - 1) pagina = maxPagine - 1;
+  });
+
   async function sovrapponi() {
     if (!idA || !idB || idA === idB) return;
     imgCaricamento = true;
@@ -116,7 +132,8 @@
   {:else if modalita === "immagine"}
     <div class="barra-img">
       <label>Pagina
-        <input type="number" min="1" bind:value={pagina} oninput={(e) => (pagina = Math.max(0, +e.target.value - 1))} style="width:64px" />
+        <input type="number" min="1" max={maxPagine} value={pagina + 1} oninput={(e) => impostaPagina(e.target.value)} style="width:64px" />
+        <span class="perc">/ {maxPagine}</span>
       </label>
       <button onclick={confrontaImg}>Confronta pagina {pagina + 1}</button>
       {#if img}<span class="perc">{img.percentuale.toFixed(2)}% pixel diversi ({img.pixel_diversi.toLocaleString()})</span>{/if}
@@ -133,7 +150,8 @@
   {:else if modalita === "sovrapposizione"}
     <div class="barra-img">
       <label>Pagina
-        <input type="number" min="1" bind:value={pagina} oninput={(e) => (pagina = Math.max(0, +e.target.value - 1))} style="width:64px" />
+        <input type="number" min="1" max={maxPagine} value={pagina + 1} oninput={(e) => impostaPagina(e.target.value)} style="width:64px" />
+        <span class="perc">/ {maxPagine}</span>
       </label>
       <button onclick={sovrapponi}>Sovrapponi pagina {pagina + 1}</button>
       <span class="perc">Rosso = solo nel 1°, Blu = solo nel 2°, Nero = uguale</span>

@@ -61,6 +61,34 @@
     elementi = [...elementi];
   }
 
+  // Trascinamento degli oggetti già posizionati. `dragStato` tiene l'oggetto
+  // mosso e lo scarto (in mm) fra il puntatore e la sua origine, così l'oggetto
+  // segue il mouse senza “saltare”.
+  let dragStato = null;
+  function inizioDrag(e, item, lista) {
+    e.stopPropagation();
+    e.preventDefault();
+    const { x_mm, y_mm } = mmDaEvento(e);
+    dragStato = { item, lista, dxMm: x_mm - item.x_mm, dyMm: y_mm - item.y_mm };
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+  }
+  function muoviDrag(e) {
+    if (!dragStato) return;
+    const { x_mm, y_mm } = mmDaEvento(e);
+    dragStato.item.x_mm = Math.max(0, Math.round((x_mm - dragStato.dxMm) * 10) / 10);
+    dragStato.item.y_mm = Math.max(0, Math.round((y_mm - dragStato.dyMm) * 10) / 10);
+    rinfresca(dragStato.lista);
+  }
+  function fineDrag() {
+    dragStato = null;
+  }
+  function rinfresca(lista) {
+    if (lista === "el") elementi = [...elementi];
+    else if (lista === "campo") campi = [...campi];
+    else if (lista === "red") redazioni = [...redazioni];
+    else annotazioni = [...annotazioni];
+  }
+
   // Carica pagina e dimensioni quando cambiano scheda/pagina/zoom.
   $effect(() => {
     if (!s) return;
@@ -96,6 +124,9 @@
 
   function suClic(e) {
     if (!dims) return;
+    // Posiziona un nuovo elemento solo cliccando sullo sfondo della pagina,
+    // non sopra un oggetto già presente (che invece si sposta).
+    if (e.target !== areaEl && !e.target.classList?.contains("pag-img")) return;
     const { x_mm, y_mm } = mmDaEvento(e);
     if (strumento === "testo") {
       elementi.push({ id: prossimoId++, tipo: "testo", pagina, x_mm, y_mm,
@@ -412,47 +443,82 @@
           <!-- Pagina + overlay -->
           <div class="pagina" bind:this={areaEl} role="presentation"
             style={`width:${larghezzaPx}px; height:${pageHpx}px;`}
-            onmousemove={suMovimento} onclick={suClic}>
-            {#if imgUrl}<img src={imgUrl} alt={`Pagina ${pagina + 1}`} draggable="false" />{/if}
+            onmousemove={suMovimento} onclick={suClic}
+            onpointerup={fineDrag} onpointerleave={fineDrag}>
+            {#if imgUrl}<img class="pag-img" src={imgUrl} alt={`Pagina ${pagina + 1}`} draggable="false" />{/if}
             {#each elementiPagina as x (x.id)}
               {#if x.tipo === "testo"}
                 <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
-                <div
-                  class="txt-el"
-                  style={`left:${x.x_mm * pxPerMm}px; top:${x.y_mm * pxPerMm}px; font-size:${x.dim_pt * pxPerPt}px; color:${x.colore}; opacity:${(x.opacita ?? 100) / 100};`}
-                  contenteditable="true"
-                  spellcheck="false"
-                  role="textbox"
-                  tabindex="-1"
-                  title="Doppio clic / scrivi per modificare il testo"
-                  onpointerdown={(e) => e.stopPropagation()}
-                  onclick={(e) => e.stopPropagation()}
-                  onblur={(e) => fineModifica(x, e)}
-                  onkeydown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.currentTarget.blur(); } }}
-                >{x.testo}</div>
+                <div class="el-wrap" style={`left:${x.x_mm * pxPerMm}px; top:${x.y_mm * pxPerMm}px;`}>
+                  <div
+                    class="maniglia"
+                    title="Trascina per spostare"
+                    onpointerdown={(e) => inizioDrag(e, x, 'el')}
+                    onpointermove={muoviDrag}
+                    onpointerup={fineDrag}
+                    onpointercancel={fineDrag}
+                    onclick={(e) => e.stopPropagation()}
+                  >✥</div>
+                  <div
+                    class="txt-el"
+                    style={`font-size:${x.dim_pt * pxPerPt}px; color:${x.colore}; opacity:${(x.opacita ?? 100) / 100};`}
+                    contenteditable="true"
+                    spellcheck="false"
+                    role="textbox"
+                    tabindex="-1"
+                    title="Doppio clic / scrivi per modificare il testo"
+                    onpointerdown={(e) => e.stopPropagation()}
+                    onclick={(e) => e.stopPropagation()}
+                    onblur={(e) => fineModifica(x, e)}
+                    onkeydown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.currentTarget.blur(); } }}
+                  >{x.testo}</div>
+                </div>
               {:else if x.png_base64}
+                <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
                 <img
                   class="img-el"
                   src={`data:image/png;base64,${x.png_base64}`}
                   alt={x.nomeFirma ?? 'immagine'}
                   draggable="false"
+                  title="Trascina per spostare"
                   style={`left:${x.x_mm * pxPerMm}px; top:${x.y_mm * pxPerMm}px; width:${(x.larghezza_mm ?? 40) * pxPerMm}px; height:${(x.altezza_mm ?? 20) * pxPerMm}px; opacity:${(x.opacita ?? 100) / 100};`}
+                  onpointerdown={(e) => inizioDrag(e, x, 'el')}
+                  onpointermove={muoviDrag}
+                  onpointerup={fineDrag}
+                  onpointercancel={fineDrag}
+                  onclick={(e) => e.stopPropagation()}
                 />
               {:else}
                 <div class="marker" style={`left:${x.x_mm * pxPerMm}px; top:${x.y_mm * pxPerMm}px;`} title={x.tipo}>🖼</div>
               {/if}
             {/each}
-            {#each campiPagina as c}
-              <div class="campo-box" style={`left:${c.x_mm * pxPerMm}px; top:${c.y_mm * pxPerMm}px; width:${c.larghezza_mm * pxPerMm}px; height:${c.altezza_mm * pxPerMm}px;`}>{c.nome}</div>
+            {#each campiPagina as c (c.id)}
+              <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
+              <div class="campo-box" title="Trascina per spostare"
+                style={`left:${c.x_mm * pxPerMm}px; top:${c.y_mm * pxPerMm}px; width:${c.larghezza_mm * pxPerMm}px; height:${c.altezza_mm * pxPerMm}px;`}
+                onpointerdown={(e) => inizioDrag(e, c, 'campo')} onpointermove={muoviDrag}
+                onpointerup={fineDrag} onpointercancel={fineDrag} onclick={(e) => e.stopPropagation()}>{c.nome}</div>
             {/each}
-            {#each redazioniPagina as a}
-              <div class="red-box" style={`left:${a.x_mm * pxPerMm}px; top:${a.y_mm * pxPerMm}px; width:${a.larghezza_mm * pxPerMm}px; height:${a.altezza_mm * pxPerMm}px;`}></div>
+            {#each redazioniPagina as a (a.id)}
+              <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
+              <div class="red-box" title="Trascina per spostare"
+                style={`left:${a.x_mm * pxPerMm}px; top:${a.y_mm * pxPerMm}px; width:${a.larghezza_mm * pxPerMm}px; height:${a.altezza_mm * pxPerMm}px;`}
+                onpointerdown={(e) => inizioDrag(e, a, 'red')} onpointermove={muoviDrag}
+                onpointerup={fineDrag} onpointercancel={fineDrag} onclick={(e) => e.stopPropagation()}></div>
             {/each}
-            {#each annotazioniPagina as a}
+            {#each annotazioniPagina as a (a.id)}
               {#if a.tipo === "evidenzia"}
-                <div class="evid-box" style={`left:${a.x_mm * pxPerMm}px; top:${a.y_mm * pxPerMm}px; width:${a.larghezza_mm * pxPerMm}px; height:${a.altezza_mm * pxPerMm}px; background:${a.colore};`}></div>
+                <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
+                <div class="evid-box" title="Trascina per spostare"
+                  style={`left:${a.x_mm * pxPerMm}px; top:${a.y_mm * pxPerMm}px; width:${a.larghezza_mm * pxPerMm}px; height:${a.altezza_mm * pxPerMm}px; background:${a.colore};`}
+                  onpointerdown={(e) => inizioDrag(e, a, 'ann')} onpointermove={muoviDrag}
+                  onpointerup={fineDrag} onpointercancel={fineDrag} onclick={(e) => e.stopPropagation()}></div>
               {:else}
-                <div class="nota-pin" style={`left:${a.x_mm * pxPerMm}px; top:${a.y_mm * pxPerMm}px;`} title={a.contenuto}>📝</div>
+                <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
+                <div class="nota-pin" title={a.contenuto}
+                  style={`left:${a.x_mm * pxPerMm}px; top:${a.y_mm * pxPerMm}px;`}
+                  onpointerdown={(e) => inizioDrag(e, a, 'ann')} onpointermove={muoviDrag}
+                  onpointerup={fineDrag} onpointercancel={fineDrag} onclick={(e) => e.stopPropagation()}>📝</div>
               {/if}
             {/each}
           </div>
@@ -516,17 +582,28 @@
   .pagina img { display: block; width: 100%; height: 100%; user-select: none; }
   .marker { position: absolute; transform: translate(-2px, -2px); background: var(--accento); color: #fff; font-size: 11px; min-width: 16px; height: 16px; border-radius: 3px; display: flex; align-items: center; justify-content: center; pointer-events: none; }
   /* Testo a grandezza reale, modificabile sulla pagina */
+  /* Contenitore di un testo posizionato (porta la maniglia di spostamento) */
+  .el-wrap { position: absolute; }
   .txt-el {
-    position: absolute; line-height: 1; white-space: pre; font-family: Helvetica, Arial, sans-serif;
-    cursor: text; outline: none; transform: translateY(0); padding: 0;
+    line-height: 1; white-space: pre; font-family: Helvetica, Arial, sans-serif;
+    cursor: text; outline: none; padding: 0;
   }
   .txt-el:hover { outline: 1px dashed rgba(30,111,216,0.6); outline-offset: 1px; }
   .txt-el:focus { outline: 1px solid var(--accento); outline-offset: 1px; background: rgba(30,111,216,0.06); }
-  /* Anteprima reale di immagini e firme */
-  .img-el { position: absolute; pointer-events: none; object-fit: fill; }
-  .campo-box { position: absolute; border: 1.5px dashed #1e6fd8; background: rgba(30,111,216,0.12); color: #1e6fd8; font-size: 10px; padding: 1px 3px; box-sizing: border-box; pointer-events: none; overflow: hidden; }
-  .red-box { position: absolute; background: rgba(0,0,0,0.82); border: 1px solid #c81e1e; box-sizing: border-box; pointer-events: none; }
+  /* Maniglia di trascinamento (appare al passaggio del mouse) */
+  .maniglia {
+    position: absolute; left: -10px; top: -10px; width: 18px; height: 18px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--accento); color: #fff; font-size: 11px; line-height: 1;
+    border-radius: 50%; cursor: move; touch-action: none; opacity: 0;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.4); transition: opacity 0.12s; z-index: 2;
+  }
+  .el-wrap:hover .maniglia, .maniglia:active { opacity: 1; }
+  /* Anteprima reale di immagini e firme (trascinabile) */
+  .img-el { position: absolute; object-fit: fill; cursor: move; touch-action: none; }
+  .campo-box { position: absolute; border: 1.5px dashed #1e6fd8; background: rgba(30,111,216,0.12); color: #1e6fd8; font-size: 10px; padding: 1px 3px; box-sizing: border-box; cursor: move; touch-action: none; overflow: hidden; }
+  .red-box { position: absolute; background: rgba(0,0,0,0.82); border: 1px solid #c81e1e; box-sizing: border-box; cursor: move; touch-action: none; }
   .salva.rosso { background: #c81e1e; }
-  .evid-box { position: absolute; opacity: 0.4; box-sizing: border-box; pointer-events: none; }
-  .nota-pin { position: absolute; transform: translate(-2px, -50%); font-size: 14px; pointer-events: none; }
+  .evid-box { position: absolute; opacity: 0.4; box-sizing: border-box; cursor: move; touch-action: none; }
+  .nota-pin { position: absolute; transform: translate(-2px, -50%); font-size: 14px; cursor: move; touch-action: none; }
 </style>

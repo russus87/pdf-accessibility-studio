@@ -411,6 +411,40 @@ Alt, cambio ruolo e riordino su un PDF taggato costruito al volo.
 - Nota: la validazione WCAG di base era già presente (regole in `validazione.rs`); il
   report Matterhorn ora espone esplicitamente i criteri WCAG accanto a ogni checkpoint.
 
+## Fase 49 — Shell UI stile VS Code/Acrobat ✅
+
+- ✅ Restyle completo dell'interfaccia: activity bar, sidebar, barra di stato e
+  schede tipizzate (pdf/creatore). Componenti `BarraAttivita`, `BarraSchede`,
+  `BarraStato`, `BarraStrumenti`. Editor HTML visuale in iframe.
+
+## Fase 50 — Strumento di misura ✅
+
+- ✅ `StrumentoMisura.svelte`: righello trascinabile, calibro a ganasce, misura
+  distanza con punti annotati A/B/C…, area, unità cm/mm/in/pt, pannello dedicato.
+
+## Fase 51 — Creatore documenti ✅
+
+- ✅ `Creatore.svelte` + `FoglioEditor.svelte`: designer a foglio unico con
+  impaginazione automatica, margini, header/footer (vedi [[render-pdf-printpdf]]).
+
+## 1.9.1 — Fix editor + misura ✅
+
+- ✅ Opacità testo: convertita da percentuale (0-100) a 0-255 prima del backend
+  (`PdfColor`), così il nero scelto resta nero pieno e non grigio.
+- ✅ Editor: il testo è mostrato a grandezza reale sulla pagina e modificabile
+  inline (doppio clic); immagini/firme mostrano l'anteprima reale (non più "T"/🖼).
+- ✅ Calibro: la quota segue il cursore (visibile fra le righe) e viene disegnato
+  un vero calibro (asta + ganasce a uncino).
+
+## 1.9.2 — Sposta oggetti + fix confronto ✅
+
+- ✅ Editor: ogni oggetto posizionato (testo via maniglia ✥, immagini/firme,
+  campi, evidenziazioni, note, redazioni) è **trascinabile** con pointer capture;
+  guard anti-doppio-inserimento cliccando sopra un oggetto esistente.
+- ✅ Confronto: corretto l'input pagina (prima `bind:value` + `oninput` in
+  conflitto bloccavano la pagina su 0). Ora binding a senso unito 1-based,
+  freccette/digitazione funzionano, clamp ai limiti reali con indicatore "/ N".
+
 ## Idee future ⏳
 
 - ⏳ Anteprime con drag&drop per riordino, miniature nel pannello Pagine
