@@ -28,6 +28,7 @@
         { id: "correggi", icona: "wrench", testo: "Correggi", tipo: "pannello", pdf: true },
         { id: "tag", icona: "tag", testo: "Tag", tipo: "pannello", pdf: true },
         { id: "autotag", icona: "wand", testo: "Auto-tag", tipo: "pannello", pdf: true },
+        { id: "ordine", icona: "list", testo: "Anteprima lettura (screen reader)", tipo: "pannello", pdf: true },
         { id: "moduli", icona: "moduli", testo: "Moduli", tipo: "pannello", pdf: true },
         { id: "leggi", icona: "volume", testo: "Leggi ad alta voce", tipo: "pannello", pdf: true },
         { id: "ai", icona: "ai", testo: "AI documento", tipo: "pannello", pdf: true },

@@ -31,6 +31,7 @@
     { eti: "Tag: Testo alternativo (AI)", ok: haPdf, run: () => schede.apriPannello("tag", "alt") },
     { eti: "Tag: Ordine di lettura", ok: haPdf, run: () => schede.apriPannello("tag", "riordina") },
     { eti: "Pannello: Auto-tag", ok: haPdf, run: () => schede.apriPannello("autotag") },
+    { eti: "Anteprima lettura (screen reader)", ok: haPdf, run: () => schede.apriPannello("ordine") },
     { eti: "Pannello: Moduli", ok: haPdf, run: () => schede.apriPannello("moduli") },
     { eti: "Pannello: Lettura vocale", ok: haPdf, run: () => schede.apriPannello("leggi") },
     { eti: "Pannello: AI", ok: haPdf, run: () => schede.apriPannello("ai") },

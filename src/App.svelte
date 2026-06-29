@@ -65,6 +65,7 @@
   import PannelloValidazione from "./components/PannelloValidazione.svelte";
   import PannelloTag from "./components/PannelloTag.svelte";
   import PannelloAutotag from "./components/PannelloAutotag.svelte";
+  import AnteprimaLettura from "./components/AnteprimaLettura.svelte";
   import PannelloSegnalibri from "./components/PannelloSegnalibri.svelte";
   import LettoreVocale from "./components/LettoreVocale.svelte";
   import PannelloCorrezione from "./components/PannelloCorrezione.svelte";
@@ -83,7 +84,7 @@
   import ProceduraGuidata from "./components/ProceduraGuidata.svelte";
 
   // Pannelli laterali ammessi (chi richiede un PDF e chi no).
-  const PANNELLI = ["anteprime", "pagine", "indice", "metadati", "cerca", "valida", "correggi", "tag", "autotag", "moduli", "leggi", "ai", "strumenti", "libreria"];
+  const PANNELLI = ["anteprime", "pagine", "indice", "metadati", "cerca", "valida", "correggi", "tag", "autotag", "ordine", "moduli", "leggi", "ai", "strumenti", "libreria"];
   const SENZA_PDF = ["libreria"];
 
   const sidebarVisibile = $derived(
@@ -120,6 +121,7 @@
         {:else if schede.pannello === "correggi"}<PannelloCorrezione />
         {:else if schede.pannello === "tag"}<PannelloTag />
         {:else if schede.pannello === "autotag"}<PannelloAutotag />
+        {:else if schede.pannello === "ordine"}<AnteprimaLettura />
         {:else if schede.pannello === "moduli"}<PannelloModuli />
         {:else if schede.pannello === "leggi"}<LettoreVocale />
         {:else if schede.pannello === "ai"}<PannelloAI />

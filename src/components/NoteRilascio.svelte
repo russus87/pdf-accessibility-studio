@@ -4,6 +4,11 @@
   import { getVersion } from "@tauri-apps/api/app";
 
   const NOTE = {
+    "1.15.0": [
+      "Anteprima «screen reader»: vedi il contenuto nell'ordine in cui lo legge un lettore di schermo (pannello Anteprima lettura)",
+      "Controlli di qualità: nuova scheda «Qualità» nella Validazione con avvisi euristici (alt sospetti, tabelle senza intestazioni, titoli non marcati…)",
+      "Fix rapidi: sistema titoli automatico e generazione segnalibri dalla Validazione",
+    ],
     "1.13.0": [
       "Palette dei comandi: premi Ctrl+K per cercare ed eseguire qualsiasi azione",
       "Procedura guidata di remediation accessibilità",

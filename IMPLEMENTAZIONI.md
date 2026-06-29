@@ -527,8 +527,34 @@ Alt, cambio ruolo e riordino su un PDF taggato costruito al volo.
   traduzione reattivo + selettore lingua), non frettolosamente. Lasciata a parte
   per non consegnare un'app tradotta a metà.
 
-## Idee future ⏳
+## Fase 61 — Anteprima screen reader ✅
 
+- ✅ `AnteprimaLettura.svelte` (pannello "ordine", icona list, in activity bar e
+  palette): mostra il contenuto nell'ordine logico letto da uno screen reader
+  (`blocchi_lettura`), con ruolo per blocco, filtro "solo titoli" e salto alla
+  pagina. È la lente "screen reader preview" tipo PAC 2024.
+
+## Fase 62 — Controlli di qualità euristici ✅
+
+- ✅ `PannelloValidazione.svelte`, terza vista **Qualità**: avvisi di plausibilità
+  oltre ai machine-checkable, calcolati da `albero_tag` + `blocchi_lettura`:
+  alt sospetti (nome file/segnaposto), tabelle senza TH, liste di un solo
+  elemento, titoli vuoti, paragrafi che sembrano titoli, link con testo generico,
+  assenza di H1. Ogni avviso ha il pulsante «Correggi →» verso lo strumento.
+
+## Fase 63 — Fix rapidi aggiuntivi ✅
+
+- ✅ Nel box "Correzione guidata": **Sistema titoli (auto)** riallinea la gerarchia
+  H1–H6 e salva una copia (`correggi({ruoli})`); **Genera segnalibri dai titoli**
+  (`genera_segnalibri`). Si aggiungono alla correzione automatica e ai salti
+  «Correggi →» già presenti (Fasi 55-56).
+
+## Idee future ⏳ (Blocco F — strategico, lavori più ampi)
+
+- ⏳ Allineamento PDF/UA-2 (ISO 14289-2 / PDF 2.0): attributi struttura, annotazioni, metadati
+- ⏳ Rilevamento automatico tabelle (righe/colonne/intestazioni) per pre-compilare l'editor
+- ⏳ MathML per le formule (richiesto da PDF/UA-2)
+- ⏳ Export HTML accessibile / lingua per passaggio / VPAT formale
 - ⏳ Localizzazione inglese (Fase 59) — vedi sopra
 - ⏳ Report VPAT formale (il report Matterhorn HTML già documenta la conformità WCAG)
 - ⏳ Riordino ordine di lettura *annidato* (estensione di `correzione::riordina`)

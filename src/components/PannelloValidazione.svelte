@@ -1,7 +1,7 @@
 <script>
   // Pannello validazione accessibilita': mostra gli esiti delle regole.
   import { schede } from "../lib/schede.svelte.js";
-  import { valida, salvaReportValidazione, ocrInfo, eseguiOcr, contrasto, matterhorn, salvaReportMatterhorn, autoCorreggi } from "../lib/api.js";
+  import { valida, salvaReportValidazione, ocrInfo, eseguiOcr, contrasto, matterhorn, salvaReportMatterhorn, autoCorreggi, alberoTag, blocchiLettura, correggi, generaSegnalibri } from "../lib/api.js";
 
   const s = $derived(schede.schedaAttiva);
 
@@ -36,10 +36,123 @@
       autoInCorso = false;
     }
   }
-  let vista = $state("validazione"); // "validazione" | "matterhorn"
+  let vista = $state("validazione"); // "validazione" | "matterhorn" | "qualita"
   let mh = $state(null);
   let mhCaricamento = $state(false);
   let report = $state(null);
+
+  // --- Controlli di qualità (euristici, oltre ai machine-checkable) ---
+  let qc = $state(null);
+  let qcCaricamento = $state(false);
+  const FIXQ = {
+    alt: { pannello: "tag", modo: "alt", label: "Aggiungi testo alternativo" },
+    tab: { pannello: "tag", modo: "tabelle", label: "Modifica tabelle" },
+    ruoli: { pannello: "tag", modo: "ruoli", label: "Correggi nei Tag" },
+  };
+  const GENERICI = ["clicca qui", "qui", "link", "clicca", "leggi", "leggi di più", "continua", "di più", "here", "click here", "read more", "more"];
+
+  function appiattisci(nodi, acc = []) {
+    for (const n of nodi || []) { acc.push(n); appiattisci(n.figli, acc); }
+    return acc;
+  }
+  function contiene(n, ruolo) {
+    for (const c of n.figli || []) { if (c.ruolo === ruolo || contiene(c, ruolo)) return true; }
+    return false;
+  }
+  function analizzaQualita(radice, blocchi) {
+    const out = [];
+    for (const n of appiattisci(radice)) {
+      if (n.ruolo === "Figure") {
+        const a = (n.alt || "").trim();
+        if (a && (/\.(png|jpe?g|gif|svg|bmp|tiff?|webp)$/i.test(a) || /^(image|img|immagine|figura|fig|foto|dsc|screenshot|untitled|senza titolo)[\s_-]*\d*$/i.test(a))) {
+          out.push({ regola: "Alt poco descrittivo", messaggio: `Una figura ha un alt che sembra un nome file o un segnaposto: «${a}».`, pagina: n.pagina, fix: FIXQ.alt });
+        }
+      }
+      if (n.ruolo === "Table" && !contiene(n, "TH")) {
+        out.push({ regola: "Tabella senza intestazioni", messaggio: "Una tabella non ha celle di intestazione (TH): lo screen reader non assocerà i dati alle intestazioni.", pagina: n.pagina, fix: FIXQ.tab });
+      }
+      if (n.ruolo === "L" && (n.figli || []).filter((c) => c.ruolo === "LI").length <= 1) {
+        out.push({ regola: "Lista di un solo elemento", messaggio: "Una lista contiene al massimo un elemento: verifica che sia davvero una lista.", pagina: n.pagina, fix: FIXQ.ruoli });
+      }
+    }
+    for (const b of blocchi || []) {
+      const t = (b.testo || "").trim();
+      if (/^H[1-6]$/.test(b.ruolo) && !t) {
+        out.push({ regola: "Titolo vuoto", messaggio: `Un titolo (${b.ruolo}) non contiene testo.`, pagina: b.pagina, fix: FIXQ.ruoli });
+      }
+      if (b.ruolo === "P" && t.length >= 3 && t.length <= 60 && !/[.:;,]$/.test(t) && t === t.toUpperCase() && /[A-ZÀ-Ý]/.test(t)) {
+        out.push({ regola: "Possibile titolo non marcato", messaggio: `Testo che sembra un titolo ma è marcato come paragrafo: «${t}».`, pagina: b.pagina, fix: FIXQ.ruoli });
+      }
+      if (b.ruolo === "Link") {
+        const lt = t.toLowerCase().replace(/[.!?]+$/, "");
+        if (!lt || GENERICI.includes(lt) || /^https?:\/\//.test(lt)) {
+          out.push({ regola: "Testo del link poco chiaro", messaggio: `Un link ha testo poco descrittivo: «${t || "(vuoto)"}».`, pagina: b.pagina, fix: FIXQ.ruoli });
+        }
+      }
+    }
+    if ((blocchi || []).length && !blocchi.some((b) => b.ruolo === "H1")) {
+      out.push({ regola: "Manca un titolo H1", messaggio: "Il documento non ha un titolo principale (H1) come radice della gerarchia.", fix: FIXQ.ruoli });
+    }
+    return out;
+  }
+  async function caricaQualita() {
+    vista = "qualita";
+    if (qc || !s) return;
+    qcCaricamento = true;
+    try {
+      const [info, blocchi] = await Promise.all([alberoTag(s.id), blocchiLettura(s.id)]);
+      qc = analizzaQualita(info?.radice || [], blocchi || []);
+    } catch (e) {
+      esito = `Qualità: ${e}`;
+      qc = [];
+    } finally {
+      qcCaricamento = false;
+    }
+  }
+
+  // Fix rapido: riallinea la gerarchia dei titoli e salva una copia.
+  let titoliInCorso = $state(false);
+  async function sistemaTitoliAuto() {
+    if (!s) return;
+    esito = null;
+    titoliInCorso = true;
+    try {
+      const info = await alberoTag(s.id);
+      const heads = appiattisci(info?.radice || []).filter((n) => /^H[1-6]$/.test(n.ruolo) && n.riferimento);
+      if (!heads.length) { esito = "Nessun titolo (H1–H6) da sistemare."; return; }
+      let prev = 0;
+      const ruoli = [];
+      for (const h of heads) {
+        const liv = parseInt(h.ruolo.slice(1), 10);
+        const target = Math.max(1, prev === 0 ? 1 : Math.min(liv, prev + 1));
+        if ("H" + target !== h.ruolo) ruoli.push({ riferimento: h.riferimento, ruolo: "H" + target });
+        prev = target;
+      }
+      if (!ruoli.length) { esito = "Gerarchia dei titoli già corretta."; return; }
+      const dest = await correggi(s.id, { ruoli });
+      if (dest) { esito = `${ruoli.length} titolo/i riallineato/i. Apro la copia…`; await schede.apri(dest); }
+    } catch (e) {
+      esito = `Errore: ${e}`;
+    } finally {
+      titoliInCorso = false;
+    }
+  }
+
+  // Fix rapido: genera i segnalibri (outline) dai titoli del documento.
+  let indiceInCorso = $state(false);
+  async function generaIndice() {
+    if (!s) return;
+    esito = null;
+    indiceInCorso = true;
+    try {
+      const r = await generaSegnalibri(s.id);
+      if (r) { esito = `Segnalibri generati (${r.n}). Apro la copia…`; await schede.apri(r.dest); }
+    } catch (e) {
+      esito = `Errore: ${e}`;
+    } finally {
+      indiceInCorso = false;
+    }
+  }
 
   async function caricaMatterhorn() {
     vista = "matterhorn";
@@ -127,6 +240,7 @@
     errore = null;
     report = null;
     mh = null;
+    qc = null;
     valida(id)
       .then((r) => !annullato && (report = r))
       .catch((e) => !annullato && (errore = String(e)))
@@ -143,6 +257,7 @@
     <div class="modi">
       <button class:on={vista === "validazione"} onclick={() => (vista = "validazione")}>WCAG/PDF-UA</button>
       <button class:on={vista === "matterhorn"} onclick={caricaMatterhorn} disabled={!s}>Matterhorn</button>
+      <button class:on={vista === "qualita"} onclick={caricaQualita} disabled={!s}>Qualità</button>
     </div>
     {#if vista === "validazione" && report}
       <div class="azioni">
@@ -207,6 +322,33 @@
     {:else}
       <p class="info">Premi “Matterhorn” per generare il report.</p>
     {/if}
+  {:else if vista === "qualita"}
+    {#if qcCaricamento}
+      <p class="info">Analisi di qualità…</p>
+    {:else if qc}
+      <div class="riepilogo">
+        <span class="badge {qc.length ? 'avv' : 'ok2'}">{qc.length} segnalazion{qc.length === 1 ? "e" : "i"}</span>
+      </div>
+      {#if qc.length === 0}
+        <p class="info">Nessuna segnalazione: ottimo! Questi sono controlli euristici di plausibilità, in aggiunta a quelli automatici.</p>
+      {/if}
+      <ul>
+        {#each qc as q}
+          <li class="avviso">
+            <span class="segno avviso">!</span>
+            <div class="corpo">
+              <div class="regola">{q.regola}{#if q.pagina != null} <span class="wcag">p.{q.pagina + 1}</span>{/if}</div>
+              <div class="msg">{q.messaggio}</div>
+              {#if q.fix}
+                <button class="fixbtn" onclick={() => schede.apriPannello(q.fix.pannello, q.fix.modo)}>{q.fix.label} →</button>
+              {/if}
+            </div>
+          </li>
+        {/each}
+      </ul>
+    {:else}
+      <p class="info">Premi “Qualità” per i controlli euristici.</p>
+    {/if}
   {:else if caricamento}
     <p class="info">Analisi in corso…</p>
   {:else if errore}
@@ -227,7 +369,11 @@
             {autoInCorso ? "Correzione…" : "Correggi automaticamente"}
           </button>
         </div>
-        <div class="gf-nota">Imposta lingua, titolo, DisplayDocTitle e id PDF/UA, poi rivalida sulla copia. Per gli altri problemi usa i pulsanti «Correggi» qui sotto.</div>
+        <div class="gf-azioni2">
+          <button onclick={sistemaTitoliAuto} disabled={titoliInCorso}>{titoliInCorso ? "…" : "Sistema titoli (auto)"}</button>
+          <button onclick={generaIndice} disabled={indiceInCorso}>{indiceInCorso ? "…" : "Genera segnalibri dai titoli"}</button>
+        </div>
+        <div class="gf-nota">La correzione automatica imposta lingua, titolo, DisplayDocTitle e id PDF/UA e rivalida sulla copia. Per gli altri problemi usa i pulsanti «Correggi» qui sotto.</div>
       </div>
     {/if}
     <ul>
@@ -373,6 +519,13 @@
     padding: 6px 12px; cursor: pointer; font-size: 12px;
   }
   .gf-riga button:disabled { opacity: 0.6; cursor: default; }
+  .gf-azioni2 { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .gf-azioni2 button {
+    background: var(--scheda); color: var(--testo); border: 1px solid var(--bordo);
+    border-radius: 6px; padding: 5px 10px; cursor: pointer; font-size: 12px;
+  }
+  .gf-azioni2 button:hover:not(:disabled) { border-color: var(--accento); }
+  .gf-azioni2 button:disabled { opacity: 0.6; cursor: default; }
   .gf-nota { margin-top: 6px; font-size: 11px; color: var(--testo-soft); line-height: 1.4; }
   .corpo { display: flex; flex-direction: column; gap: 2px; }
   .fixbtn {
