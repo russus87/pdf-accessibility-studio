@@ -445,6 +445,23 @@ Alt, cambio ruolo e riordino su un PDF taggato costruito al volo.
   conflitto bloccavano la pagina su 0). Ora binding a senso unito 1-based,
   freccette/digitazione funzionano, clamp ai limiti reali con indicatore "/ N".
 
+## Fase 52 — Undo/redo nell'editor ✅
+
+- ✅ `Editor.svelte`: cronologia a snapshot JSON dei quattro insiemi di oggetti
+  (testo/immagini/firme, campi, redazioni, annotazioni). `registra()` agganciato
+  a piazzamento, spostamento (a fine drag), modifica testo ed eliminazione.
+- ✅ Annulla/Ripeti con pulsanti dedicati e scorciatoie **Ctrl+Z / Ctrl+Shift+Z**
+  (e Ctrl+Y), ignorate mentre si scrive in un campo (lì vale l'undo nativo).
+  Storico limitato a 100 voci, salto immediato allo stato corrispondente.
+
+## Fase 53 — Snap, guide e ridimensionamento ✅
+
+- ✅ Snap durante il trascinamento ai bordi/centro pagina e agli altri oggetti
+  (bordi e centri), con **linee guida** rosa che appaiono all'allineamento.
+- ✅ **Griglia 5 mm** opzionale (checkbox) con snap e overlay visivo di sfondo.
+- ✅ **Maniglia d'angolo** per ridimensionare immagini e firme (Shift mantiene le
+  proporzioni); il ridimensionamento entra nella cronologia.
+
 ## Idee future ⏳
 
 - ⏳ Anteprime con drag&drop per riordino, miniature nel pannello Pagine

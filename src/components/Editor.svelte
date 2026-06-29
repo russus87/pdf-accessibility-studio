@@ -59,28 +59,39 @@
     const t = e.currentTarget.textContent.replace(/\s+$/, "");
     x.testo = t.length ? t : "Testo";
     elementi = [...elementi];
+    registra();
   }
 
   // Trascinamento degli oggetti già posizionati. `dragStato` tiene l'oggetto
   // mosso e lo scarto (in mm) fra il puntatore e la sua origine, così l'oggetto
   // segue il mouse senza “saltare”.
   let dragStato = null;
+  let dragMosso = false;
   function inizioDrag(e, item, lista) {
     e.stopPropagation();
     e.preventDefault();
     const { x_mm, y_mm } = mmDaEvento(e);
     dragStato = { item, lista, dxMm: x_mm - item.x_mm, dyMm: y_mm - item.y_mm };
+    dragMosso = false;
     e.currentTarget.setPointerCapture?.(e.pointerId);
   }
   function muoviDrag(e) {
     if (!dragStato) return;
     const { x_mm, y_mm } = mmDaEvento(e);
-    dragStato.item.x_mm = Math.max(0, Math.round((x_mm - dragStato.dxMm) * 10) / 10);
-    dragStato.item.y_mm = Math.max(0, Math.round((y_mm - dragStato.dyMm) * 10) / 10);
+    const desX = Math.max(0, x_mm - dragStato.dxMm);
+    const desY = Math.max(0, y_mm - dragStato.dyMm);
+    const { x, y, gx, gy } = applicaSnap(desX, desY, dragStato.item);
+    dragStato.item.x_mm = Math.round(x * 10) / 10;
+    dragStato.item.y_mm = Math.round(y * 10) / 10;
+    guida = { x: gx, y: gy };
+    dragMosso = true;
     rinfresca(dragStato.lista);
   }
   function fineDrag() {
+    if (dragMosso) registra();
     dragStato = null;
+    dragMosso = false;
+    guida = { x: null, y: null };
   }
   function rinfresca(lista) {
     if (lista === "el") elementi = [...elementi];
@@ -88,6 +99,117 @@
     else if (lista === "red") redazioni = [...redazioni];
     else annotazioni = [...annotazioni];
   }
+
+  // --- Snap e guide di allineamento ---
+  // Griglia opzionale + aggancio ai bordi/centro pagina e agli altri oggetti.
+  const PASSO_GRIGLIA = 5; // mm
+  let griglia = $state(false);
+  let guida = $state({ x: null, y: null }); // linee guida attive (in mm)
+
+  function bersagliSnap(item) {
+    const xs = [0, pageWmm / 2, pageWmm];
+    const ys = [0, pageHmm / 2, pageHmm];
+    const tutti = [...elementi, ...campi, ...redazioni, ...annotazioni];
+    for (const o of tutti) {
+      if (o === item || o.pagina !== pagina) continue;
+      xs.push(o.x_mm);
+      ys.push(o.y_mm);
+      if (o.larghezza_mm) { xs.push(o.x_mm + o.larghezza_mm, o.x_mm + o.larghezza_mm / 2); }
+      if (o.altezza_mm) { ys.push(o.y_mm + o.altezza_mm, o.y_mm + o.altezza_mm / 2); }
+    }
+    return { xs, ys };
+  }
+  function applicaSnap(xMm, yMm, item) {
+    const soglia = 8 / pxPerMm; // ~8 px sullo schermo, indipendente dallo zoom
+    let x = xMm, y = yMm, gx = null, gy = null;
+    if (griglia) {
+      x = Math.round(x / PASSO_GRIGLIA) * PASSO_GRIGLIA;
+      y = Math.round(y / PASSO_GRIGLIA) * PASSO_GRIGLIA;
+    }
+    const { xs, ys } = bersagliSnap(item);
+    let bx = soglia;
+    for (const t of xs) { const d = Math.abs(xMm - t); if (d < bx) { bx = d; x = t; gx = t; } }
+    let by = soglia;
+    for (const t of ys) { const d = Math.abs(yMm - t); if (d < by) { by = d; y = t; gy = t; } }
+    return { x: Math.max(0, x), y: Math.max(0, y), gx, gy };
+  }
+
+  // --- Ridimensionamento (immagini/firme) dalla maniglia d'angolo ---
+  let resizeStato = null;
+  function inizioRidim(e, item) {
+    e.stopPropagation();
+    e.preventDefault();
+    resizeStato = {
+      item, startW: item.larghezza_mm ?? 40, startH: item.altezza_mm ?? 20,
+      startX: e.clientX, startY: e.clientY,
+      aspect: (item.larghezza_mm ?? 40) / (item.altezza_mm ?? 20),
+    };
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+  }
+  function muoviRidim(e) {
+    if (!resizeStato) return;
+    const dW = (e.clientX - resizeStato.startX) / pxPerMm;
+    const dH = (e.clientY - resizeStato.startY) / pxPerMm;
+    const w = Math.max(5, resizeStato.startW + dW);
+    const h = e.shiftKey ? w / resizeStato.aspect : Math.max(5, resizeStato.startH + dH);
+    resizeStato.item.larghezza_mm = Math.round(w * 10) / 10;
+    resizeStato.item.altezza_mm = Math.round(h * 10) / 10;
+    elementi = [...elementi];
+  }
+  function fineRidim() {
+    if (resizeStato) registra();
+    resizeStato = null;
+  }
+
+  // --- Cronologia: annulla/ripeti (Ctrl+Z / Ctrl+Shift+Z) ---
+  // Ogni voce è uno snapshot JSON dei quattro insiemi di oggetti posizionati.
+  const MAX_CRONO = 100;
+  function istantanea() {
+    return JSON.stringify({ elementi, campi, redazioni, annotazioni });
+  }
+  let cronologia = $state([istantanea()]);
+  let cronoIdx = $state(0);
+  const puoAnnullare = $derived(cronoIdx > 0);
+  const puoRipetere = $derived(cronoIdx < cronologia.length - 1);
+
+  function registra() {
+    const snap = istantanea();
+    if (snap === cronologia[cronoIdx]) return; // nessun cambiamento reale
+    cronologia = [...cronologia.slice(0, cronoIdx + 1), snap].slice(-MAX_CRONO);
+    cronoIdx = cronologia.length - 1;
+  }
+  function ripristina(snap) {
+    const o = JSON.parse(snap);
+    elementi = o.elementi;
+    campi = o.campi;
+    redazioni = o.redazioni;
+    annotazioni = o.annotazioni;
+  }
+  function annulla() {
+    if (!puoAnnullare) return;
+    cronoIdx -= 1;
+    ripristina(cronologia[cronoIdx]);
+  }
+  function ripeti() {
+    if (!puoRipetere) return;
+    cronoIdx += 1;
+    ripristina(cronologia[cronoIdx]);
+  }
+
+  // Scorciatoie da tastiera, ignorate mentre si scrive in un campo (lì vale
+  // l'annulla nativo del testo).
+  $effect(() => {
+    function onKey(e) {
+      const t = e.target;
+      if (t && (t.isContentEditable || t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT")) return;
+      if (!(e.ctrlKey || e.metaKey)) return;
+      const k = e.key.toLowerCase();
+      if (k === "z" && !e.shiftKey) { e.preventDefault(); annulla(); }
+      else if ((k === "z" && e.shiftKey) || k === "y") { e.preventDefault(); ripeti(); }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
 
   // Carica pagina e dimensioni quando cambiano scheda/pagina/zoom.
   $effect(() => {
@@ -153,6 +275,7 @@
     campi = [...campi];
     redazioni = [...redazioni];
     annotazioni = [...annotazioni];
+    registra();
   }
 
   function rimuovi(lista, id) {
@@ -160,6 +283,7 @@
     else if (lista === "campo") campi = campi.filter((x) => x.id !== id);
     else if (lista === "red") redazioni = redazioni.filter((x) => x.id !== id);
     else annotazioni = annotazioni.filter((x) => x.id !== id);
+    registra();
   }
 
   async function salvaAnnotazioni() {
@@ -284,6 +408,12 @@
         <span>Pag. {pagina + 1} / {s.pagine}</span>
         <button onclick={() => (pagina = Math.min(s.pagine - 1, pagina + 1))} disabled={pagina >= s.pagine - 1}>›</button>
       </div>
+
+      <div class="crono">
+        <button onclick={annulla} disabled={!puoAnnullare} title="Annulla (Ctrl+Z)">↶ Annulla</button>
+        <button onclick={ripeti} disabled={!puoRipetere} title="Ripeti (Ctrl+Shift+Z)">↷ Ripeti</button>
+      </div>
+      <label class="check check-grid"><input type="checkbox" bind:checked={griglia} /> Griglia {PASSO_GRIGLIA} mm (snap)</label>
 
       <div class="strumenti">
         {#each [["testo", "Testo"], ["immagine", "Immagine"], ["firma", "Firma"], ["campo", "Campo"], ["evidenzia", "Evidenzia"], ["nota", "Nota"], ["redazione", "Redazione"]] as [k, lab]}
@@ -446,6 +576,9 @@
             onmousemove={suMovimento} onclick={suClic}
             onpointerup={fineDrag} onpointerleave={fineDrag}>
             {#if imgUrl}<img class="pag-img" src={imgUrl} alt={`Pagina ${pagina + 1}`} draggable="false" />{/if}
+            {#if griglia}<div class="grid-overlay" style={`background-size:${PASSO_GRIGLIA * pxPerMm}px ${PASSO_GRIGLIA * pxPerMm}px`}></div>{/if}
+            {#if guida.x != null}<div class="guida v" style={`left:${guida.x * pxPerMm}px`}></div>{/if}
+            {#if guida.y != null}<div class="guida h" style={`top:${guida.y * pxPerMm}px`}></div>{/if}
             {#each elementiPagina as x (x.id)}
               {#if x.tipo === "testo"}
                 <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
@@ -475,19 +608,24 @@
                 </div>
               {:else if x.png_base64}
                 <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
-                <img
-                  class="img-el"
-                  src={`data:image/png;base64,${x.png_base64}`}
-                  alt={x.nomeFirma ?? 'immagine'}
-                  draggable="false"
-                  title="Trascina per spostare"
-                  style={`left:${x.x_mm * pxPerMm}px; top:${x.y_mm * pxPerMm}px; width:${(x.larghezza_mm ?? 40) * pxPerMm}px; height:${(x.altezza_mm ?? 20) * pxPerMm}px; opacity:${(x.opacita ?? 100) / 100};`}
-                  onpointerdown={(e) => inizioDrag(e, x, 'el')}
-                  onpointermove={muoviDrag}
-                  onpointerup={fineDrag}
-                  onpointercancel={fineDrag}
-                  onclick={(e) => e.stopPropagation()}
-                />
+                <div class="el-wrap" style={`left:${x.x_mm * pxPerMm}px; top:${x.y_mm * pxPerMm}px;`}>
+                  <img
+                    class="img-el"
+                    src={`data:image/png;base64,${x.png_base64}`}
+                    alt={x.nomeFirma ?? 'immagine'}
+                    draggable="false"
+                    title="Trascina per spostare"
+                    style={`width:${(x.larghezza_mm ?? 40) * pxPerMm}px; height:${(x.altezza_mm ?? 20) * pxPerMm}px; opacity:${(x.opacita ?? 100) / 100};`}
+                    onpointerdown={(e) => inizioDrag(e, x, 'el')}
+                    onpointermove={muoviDrag}
+                    onpointerup={fineDrag}
+                    onpointercancel={fineDrag}
+                    onclick={(e) => e.stopPropagation()}
+                  />
+                  <div class="ridim" title="Trascina per ridimensionare (Shift = proporzioni)"
+                    onpointerdown={(e) => inizioRidim(e, x)} onpointermove={muoviRidim}
+                    onpointerup={fineRidim} onpointercancel={fineRidim} onclick={(e) => e.stopPropagation()}></div>
+                </div>
               {:else}
                 <div class="marker" style={`left:${x.x_mm * pxPerMm}px; top:${x.y_mm * pxPerMm}px;`} title={x.tipo}>🖼</div>
               {/if}
@@ -537,6 +675,9 @@
   }
   .nav { display: flex; align-items: center; justify-content: space-between; font-size: 13px; }
   .nav button { background: var(--scheda); border: 1px solid var(--bordo); color: var(--testo); border-radius: 6px; padding: 2px 10px; cursor: pointer; }
+  .crono { display: flex; gap: 6px; }
+  .crono button { flex: 1; background: var(--scheda); border: 1px solid var(--bordo); color: var(--testo); border-radius: 6px; padding: 5px 8px; cursor: pointer; font-size: 12px; }
+  .crono button:disabled { opacity: 0.4; cursor: default; }
   .strumenti { display: flex; gap: 4px; flex-wrap: wrap; }
   .strumenti.due button { flex: 1; }
   .strumenti button {
@@ -601,6 +742,26 @@
   .el-wrap:hover .maniglia, .maniglia:active { opacity: 1; }
   /* Anteprima reale di immagini e firme (trascinabile) */
   .img-el { position: absolute; object-fit: fill; cursor: move; touch-action: none; }
+  /* Maniglia d'angolo per ridimensionare immagini/firme */
+  .ridim {
+    position: absolute; right: -7px; bottom: -7px; width: 14px; height: 14px;
+    background: var(--accento); border: 2px solid #fff; border-radius: 3px;
+    cursor: nwse-resize; touch-action: none; opacity: 0; transition: opacity 0.12s; z-index: 2;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+  }
+  .el-wrap:hover .ridim, .ridim:active { opacity: 1; }
+  /* Linee guida di allineamento durante il trascinamento */
+  .guida { position: absolute; pointer-events: none; z-index: 3; }
+  .guida.v { top: 0; bottom: 0; width: 0; border-left: 1px dashed #e91e63; }
+  .guida.h { left: 0; right: 0; height: 0; border-top: 1px dashed #e91e63; }
+  /* Griglia di sfondo (snap) */
+  .grid-overlay {
+    position: absolute; inset: 0; pointer-events: none; z-index: 1;
+    background-image:
+      linear-gradient(to right, rgba(30,111,216,0.18) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(30,111,216,0.18) 1px, transparent 1px);
+  }
+  .check-grid { font-size: 12px; }
   .campo-box { position: absolute; border: 1.5px dashed #1e6fd8; background: rgba(30,111,216,0.12); color: #1e6fd8; font-size: 10px; padding: 1px 3px; box-sizing: border-box; cursor: move; touch-action: none; overflow: hidden; }
   .red-box { position: absolute; background: rgba(0,0,0,0.82); border: 1px solid #c81e1e; box-sizing: border-box; cursor: move; touch-action: none; }
   .salva.rosso { background: #c81e1e; }
