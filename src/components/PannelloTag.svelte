@@ -2,20 +2,30 @@
   // Pannello struttura/tag: naviga, modifica i ruoli, riordina l'ordine di
   // lettura ed esporta in JSON/XML. Le modifiche salvano una copia corretta.
   import { schede } from "../lib/schede.svelte.js";
-  import { alberoTag, salvaTag, salvaDoclang, correggi, riordina, riquadroTag, marcaArtifact, applicaTabella } from "../lib/api.js";
+  import { alberoTag, salvaTag, salvaDoclang, correggi, riordina, riquadroTag, marcaArtifact, applicaTabella, suggerisciAlt, statoAi } from "../lib/api.js";
 
   const s = $derived(schede.schedaAttiva);
   let info = $state(null);
   let caricamento = $state(false);
   let errore = $state(null);
   let esito = $state(null);
-  let modo = $state("naviga"); // "naviga" | "ruoli" | "riordina" | "artifact" | "tabelle"
+  let modo = $state("naviga"); // "naviga" | "ruoli" | "riordina" | "artifact" | "tabelle" | "alt"
 
   // Modifiche in sospeso.
   let ruoliMod = $state({}); // riferimento -> nuovo ruolo
   let ordineTop = $state([]); // elementi di primo livello riordinabili
   let artifactSel = $state({}); // riferimento -> selezionato per artifact
   let tabMod = $state({}); // riferimento -> { scope?, rowSpan?, colSpan? } modifiche celle
+
+  // Assistente Alt-text (AI): testo per figura + stato di generazione.
+  let altMod = $state({}); // riferimento -> testo alternativo
+  let altGen = $state({}); // riferimento -> in generazione
+  let altBatch = $state(false); // generazione in blocco in corso
+  let aiHaChiave = $state(false);
+  $effect(() => {
+    statoAi().then((st) => (aiHaChiave = !!st?.ha_chiave)).catch(() => {});
+  });
+  const figure = $derived(info ? righe(info.radice).filter((r) => r.ruolo === "Figure" && r.riferimento) : []);
 
   const RUOLI = ["P","H1","H2","H3","H4","H5","H6","Figure","Table","TR","TH","TD","L","LI","Span","Link","Caption","Note"];
 
@@ -29,6 +39,7 @@
     ruoliMod = {};
     artifactSel = {};
     tabMod = {};
+    altMod = {};
     alberoTag(id)
       .then((r) => {
         if (annullato) return;
@@ -162,6 +173,69 @@
       esito = `Errore: ${e}`;
     }
   }
+
+  // Testo alternativo corrente di una figura (modifica in sospeso o valore già nel PDF).
+  const altCorrente = (r) => altMod[r.riferimento] ?? r.alt ?? "";
+
+  // Genera l'alt di una figura con Claude (vision sulla pagina).
+  async function generaAlt(r) {
+    if (r.pagina == null) { esito = "Pagina sconosciuta per questa figura."; return; }
+    altGen[r.riferimento] = true;
+    try {
+      const t = await suggerisciAlt(s.id, r.pagina);
+      altMod[r.riferimento] = (t || "").trim();
+    } catch (e) {
+      esito = `Errore AI: ${e}`;
+    } finally {
+      altGen[r.riferimento] = false;
+    }
+  }
+
+  // Genera in blocco l'alt per tutte le figure ancora prive di testo.
+  async function generaTutte() {
+    altBatch = true;
+    esito = null;
+    try {
+      for (const r of figure) {
+        if (altCorrente(r).trim() || r.pagina == null) continue;
+        await generaAlt(r);
+      }
+    } finally {
+      altBatch = false;
+    }
+  }
+
+  async function salvaAlt() {
+    esito = null;
+    const alt = Object.entries(altMod)
+      .filter(([, t]) => t != null && t.trim() !== "")
+      .map(([riferimento, testo]) => ({ riferimento, testo: testo.trim() }));
+    if (!alt.length) { esito = "Nessun testo alternativo da salvare."; return; }
+    try {
+      const dest = await correggi(s.id, { alt });
+      if (dest) esito = `Copia salvata con ${alt.length} testo/i alternativo/i.`;
+    } catch (e) {
+      esito = `Errore: ${e}`;
+    }
+  }
+
+  // Riallinea la gerarchia dei titoli: il primo titolo diventa H1 e nessun
+  // titolo salta più di un livello rispetto al precedente. Precompila i cambi
+  // di ruolo (da rivedere e salvare nella stessa schermata).
+  function sistemaGerarchia() {
+    esito = null;
+    const heads = righe(info.radice).filter((r) => /^H[1-6]$/.test(r.ruolo) && r.riferimento);
+    if (!heads.length) { esito = "Nessun titolo (H1–H6) trovato."; return; }
+    let prev = 0, cambi = 0;
+    for (const h of heads) {
+      const liv = parseInt(h.ruolo.slice(1), 10);
+      const target = Math.max(1, prev === 0 ? 1 : Math.min(liv, prev + 1));
+      const nuovo = "H" + target;
+      if (nuovo !== h.ruolo) { ruoliMod[h.riferimento] = nuovo; cambi++; }
+      prev = target;
+    }
+    esito = cambi ? `${cambi} titolo/i riallineato/i: rivedi i ruoli e salva.` : "Gerarchia dei titoli già corretta.";
+  }
 </script>
 
 <div class="pannello">
@@ -171,6 +245,7 @@
       <div class="modi">
         <button class:on={modo === "naviga"} onclick={() => (modo = "naviga")}>Naviga</button>
         <button class:on={modo === "ruoli"} onclick={() => (modo = "ruoli")}>Ruoli</button>
+        <button class:on={modo === "alt"} onclick={() => (modo = "alt")} disabled={!figure.length}>Alt (AI)</button>
         <button class:on={modo === "riordina"} onclick={() => (modo = "riordina")} disabled={ordineTop.length < 2}>Riordina</button>
         <button class:on={modo === "artifact"} onclick={() => (modo = "artifact")}>Artifact</button>
         <button class:on={modo === "tabelle"} onclick={() => (modo = "tabelle")}>Tabelle</button>
@@ -212,6 +287,9 @@
 
     {:else if modo === "ruoli"}
       <p class="suggerimento">Cambia il ruolo di un elemento (es. P → H1, o segna una cella come TH).</p>
+      <div class="azioni-alt">
+        <button onclick={sistemaGerarchia} title="Primo titolo = H1 e nessun salto di livello">↧ Sistema gerarchia titoli</button>
+      </div>
       <ul class="editor">
         {#each righe(info.radice).filter((r) => r.riferimento) as r}
           <li style={`padding-left:${8 + r.prof * 16}px`}>
@@ -224,6 +302,38 @@
         {/each}
       </ul>
       <button class="salva" onclick={salvaRuoli}>Salva copia con ruoli…</button>
+
+    {:else if modo === "alt"}
+      <p class="suggerimento">
+        Testo alternativo per le <b>immagini</b> (Figure). Scrivilo a mano o generalo con
+        l'AI (Claude descrive la pagina). Le figure senza alt sono un errore WCAG comune.
+      </p>
+      {#if !aiHaChiave}
+        <p class="info">Suggerimento: imposta la chiave API nel pannello <b>AI</b> per la generazione automatica. Puoi comunque scrivere l'alt a mano.</p>
+      {/if}
+      <div class="azioni-alt">
+        <button onclick={generaTutte} disabled={altBatch || !aiHaChiave} title="Genera l'alt per tutte le figure ancora vuote">
+          {altBatch ? "Generazione…" : "🪄 Genera tutte le mancanti"}
+        </button>
+        <span class="conteggio">{figure.filter((r) => !altCorrente(r).trim()).length} senza alt / {figure.length}</span>
+      </div>
+      <ul class="editor">
+        {#each figure as r}
+          {@const vuoto = !altCorrente(r).trim()}
+          <li class="alt-riga">
+            <div class="alt-cap">
+              <button class="vai" onclick={() => vaiAElemento(r)} title="Evidenzia sul PDF">{r.ruolo}{#if r.pagina != null} · p.{r.pagina + 1}{/if}</button>
+              {#if vuoto}<span class="badge-manca">manca</span>{:else}<span class="badge-ok">ok</span>{/if}
+              <button class="ai" onclick={() => generaAlt(r)} disabled={altGen[r.riferimento] || !aiHaChiave} title="Genera con AI">
+                {altGen[r.riferimento] ? "…" : "🪄 AI"}
+              </button>
+            </div>
+            <textarea rows="2" placeholder="Descrizione dell'immagine…" value={altCorrente(r)}
+              oninput={(e) => (altMod[r.riferimento] = e.target.value)}></textarea>
+          </li>
+        {/each}
+      </ul>
+      <button class="salva" onclick={salvaAlt}>Salva copia con testi alternativi…</button>
 
     {:else if modo === "riordina"}
       <p class="suggerimento">Riordina i blocchi di primo livello: cambia l'ordine di lettura logico.</p>
@@ -462,6 +572,49 @@
     margin-left: auto;
     color: var(--testo-soft);
     font-size: 11px;
+  }
+  .azioni-alt {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 14px 0;
+  }
+  .azioni-alt button {
+    background: var(--scheda);
+    color: var(--testo);
+    border: 1px solid var(--bordo);
+    border-radius: 6px;
+    padding: 6px 10px;
+    cursor: pointer;
+    font-size: 12px;
+  }
+  .azioni-alt button:disabled { opacity: 0.5; cursor: default; }
+  .conteggio { font-size: 11px; color: var(--testo-soft); }
+  li.alt-riga {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--bordo);
+  }
+  .alt-cap { display: flex; align-items: center; gap: 8px; }
+  .alt-cap .vai {
+    background: transparent; border: none; color: var(--accento);
+    font: inherit; font-weight: 600; cursor: pointer; padding: 0;
+  }
+  .alt-cap .vai:hover { text-decoration: underline; }
+  .alt-cap .ai {
+    margin-left: auto; background: var(--scheda); color: var(--testo);
+    border: 1px solid var(--bordo); border-radius: 6px; padding: 3px 8px; cursor: pointer; font-size: 11px;
+  }
+  .alt-cap .ai:disabled { opacity: 0.5; cursor: default; }
+  .badge-manca { font-size: 10px; color: #fff; background: var(--errore, #d14); border-radius: 4px; padding: 1px 6px; }
+  .badge-ok { font-size: 10px; color: #062; background: #bdf0cb; border-radius: 4px; padding: 1px 6px; }
+  li.alt-riga textarea {
+    width: 100%; box-sizing: border-box; resize: vertical;
+    background: var(--scheda); color: var(--testo);
+    border: 1px solid var(--bordo); border-radius: 6px; padding: 6px 8px;
+    font: inherit; font-size: 12px;
   }
   .info,
   .err,

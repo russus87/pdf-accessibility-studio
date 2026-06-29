@@ -462,7 +462,23 @@ Alt, cambio ruolo e riordino su un PDF taggato costruito al volo.
 - ✅ **Maniglia d'angolo** per ridimensionare immagini e firme (Shift mantiene le
   proporzioni); il ridimensionamento entra nella cronologia.
 
+## Fase 56 — Assistente Alt-text (AI) + gerarchia titoli ✅
+
+- ✅ `PannelloTag.svelte` modalità **Alt (AI)**: elenca le figure (Figure), mostra
+  quali sono prive di testo alternativo, permette di scriverlo a mano o generarlo
+  con Claude vision (`suggerisci_alt` per pagina), singolarmente o **in blocco**
+  ("Genera tutte le mancanti"). Salvataggio via `correggi({alt})`. Indicatore
+  chiave AI mancante (rimanda al pannello AI). Navigazione alla figura sul PDF.
+- ✅ **Sistema gerarchia titoli**: nella modalità Ruoli, riallinea i livelli H
+  (primo titolo → H1, nessun salto > 1 livello) precompilando i cambi di ruolo
+  da rivedere e salvare. Riusa la correzione ruoli esistente.
+- Nota backend: tutti i comandi erano già presenti (`albero_tag`,
+  `suggerisci_alt`, `correggi`); Fase 56 è solo UI di assistenza/batch.
+
 ## Idee future ⏳
 
+- ⏳ Editor visuale ordine di lettura con overlay numerato (Fase 54: riordino
+  annidato richiede estensione di `correzione::riordina`)
+- ⏳ Loop valida→clicca→correggi nel pannello Validazione (Fase 55)
 - ⏳ Anteprime con drag&drop per riordino, miniature nel pannello Pagine
 - ⏳ Estrazione testo MCID con font CID complessi
