@@ -28,6 +28,9 @@
   let calA = $state(0.4);
   let calB = $state(0.6);
   let trascCal = $state(null); // "A" | "B" | null
+  // Posizione del corpo del calibro lungo l'asse perpendicolare (0..1): segue il
+  // cursore così la misura compare proprio dove stai guardando (es. fra le righe).
+  let calPerp = $state(0.5);
 
   // Azzera misura e ricentra strumenti quando cambia pagina.
   $effect(() => {
@@ -37,6 +40,7 @@
     rigPos = 0.5;
     calA = 0.4;
     calB = 0.6;
+    calPerp = 0.5;
   });
 
   const cmLarghezza = $derived(larghezzaPt / PT_PER_CM);
@@ -87,6 +91,9 @@
       const v = orientamento === "orizz" ? cursore.fx : cursore.fy;
       if (trascCal === "A") calA = v;
       else calB = v;
+    } else if (modo === "calibro") {
+      // Sposta il corpo del calibro (e quindi la quota) sotto al cursore.
+      calPerp = orientamento === "orizz" ? cursore.fy : cursore.fx;
     }
   }
   function calDown(quale, e) {
@@ -233,10 +240,13 @@
       <div
         class="cal-dim {orientamento}"
         style={orientamento === "orizz"
-          ? `left:${calibro.min}%;width:${calibro.max - calibro.min}%`
-          : `top:${calibro.min}%;height:${calibro.max - calibro.min}%`}
+          ? `left:${calibro.min}%;width:${calibro.max - calibro.min}%;top:${calPerp * 100}%`
+          : `top:${calibro.min}%;height:${calibro.max - calibro.min}%;left:${calPerp * 100}%`}
         aria-hidden="true"
       >
+        <span class="cal-asta"></span>
+        <span class="cal-cap cap-a"></span>
+        <span class="cal-cap cap-b"></span>
         <span class="cal-val">{fmtU(calibro.distPt)}</span>
       </div>
     {/if}
@@ -413,13 +423,26 @@
   }
   .ganascia.orizz .gan-eti { top: 6px; left: 4px; }
   .ganascia.vert .gan-eti { left: 6px; top: 4px; }
-  .cal-dim { position: absolute; pointer-events: none; z-index: 5; }
-  .cal-dim.orizz { top: 50%; height: 0; border-top: 2px dashed #2563eb; transform: translateY(-50%); }
-  .cal-dim.vert { left: 50%; width: 0; border-left: 2px dashed #2563eb; transform: translateX(-50%); }
+  .cal-dim { position: absolute; pointer-events: none; z-index: 7; }
+  .cal-dim.orizz { height: 0; transform: translateY(-50%); }
+  .cal-dim.vert { width: 0; transform: translateX(-50%); }
+  /* Asta del calibro (corpo che unisce le ganasce) */
+  .cal-asta { position: absolute; background: #2563eb; border-radius: 2px; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5); }
+  .orizz .cal-asta { left: 0; right: 0; top: 0; height: 3px; transform: translateY(-50%); }
+  .vert .cal-asta { top: 0; bottom: 0; left: 0; width: 3px; transform: translateX(-50%); }
+  /* Ganasce a uncino alle due estremità (le facce che "afferrano" la misura) */
+  .cal-cap { position: absolute; background: #2563eb; border-radius: 2px; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5); }
+  .orizz .cal-cap { top: 0; width: 4px; height: 22px; transform: translate(-50%, -50%); }
+  .orizz .cap-a { left: 0; }
+  .orizz .cap-b { left: 100%; }
+  .vert .cal-cap { left: 0; height: 4px; width: 22px; transform: translate(-50%, -50%); }
+  .vert .cap-a { top: 0; }
+  .vert .cap-b { top: 100%; }
   .cal-val {
     position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
-    background: #2563eb; color: #fff; font-size: 12px; font-weight: 600; padding: 2px 8px;
-    border-radius: 5px; white-space: nowrap; font-variant-numeric: tabular-nums;
+    background: #2563eb; color: #fff; font-size: 13px; font-weight: 700; padding: 3px 9px;
+    border-radius: 6px; white-space: nowrap; font-variant-numeric: tabular-nums;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45); border: 1px solid rgba(255, 255, 255, 0.35); z-index: 1;
   }
 
   /* Pannello — layout pulito, niente sovrapposizioni */

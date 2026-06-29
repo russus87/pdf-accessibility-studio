@@ -47,7 +47,19 @@
   const pageWmm = $derived(dims ? dims.larghezza * MM_PER_PT : 210);
   const pageHmm = $derived(dims ? dims.altezza * MM_PER_PT : 297);
   const pxPerMm = $derived(larghezzaPx / pageWmm);
+  const pxPerPt = $derived(pxPerMm * MM_PER_PT); // anteprima testo a grandezza reale
   const pageHpx = $derived(pageHmm * pxPerMm);
+
+  // Opacità: la UI usa percentuali (0-100), il backend PDF vuole 0-255.
+  const pctA255 = (p) => Math.round((Math.min(100, Math.max(0, p ?? 100)) / 100) * 255);
+
+  // Modifica del testo direttamente sulla pagina: al termine dell'editing
+  // inline scrive il contenuto del nodo nell'elemento corrispondente.
+  function fineModifica(x, e) {
+    const t = e.currentTarget.textContent.replace(/\s+$/, "");
+    x.testo = t.length ? t : "Testo";
+    elementi = [...elementi];
+  }
 
   // Carica pagina e dimensioni quando cambiano scheda/pagina/zoom.
   $effect(() => {
@@ -198,7 +210,7 @@
       const els = elementi.map((x) => ({
         tipo: x.tipo === "testo" ? "testo" : "immagine",
         pagina: x.pagina, x_mm: x.x_mm, y_mm: x.y_mm,
-        opacita: x.opacita ?? 255, rotazione: x.rotazione ?? 0,
+        opacita: pctA255(x.opacita), rotazione: x.rotazione ?? 0,
         testo: x.testo ?? null, dim_pt: x.dim_pt ?? null, colore: x.colore ?? null,
         png_base64: x.png_base64 ?? null, larghezza_mm: x.larghezza_mm ?? null, altezza_mm: x.altezza_mm ?? null,
       }));
@@ -210,8 +222,8 @@
       let fil = null;
       if (filiga.attiva) {
         fil = filiga.tipo === "immagine"
-          ? { tipo: "immagine", png_base64: filiga.png_base64, larghezza_mm: filiga.larghezza_mm, altezza_mm: filiga.altezza_mm, opacita: filiga.opacita, rotazione: filiga.rotazione }
-          : { tipo: "testo", testo: filiga.testo, dim_pt: filiga.dim_pt, colore: filiga.colore, opacita: filiga.opacita, rotazione: filiga.rotazione };
+          ? { tipo: "immagine", png_base64: filiga.png_base64, larghezza_mm: filiga.larghezza_mm, altezza_mm: filiga.altezza_mm, opacita: pctA255(filiga.opacita), rotazione: filiga.rotazione }
+          : { tipo: "testo", testo: filiga.testo, dim_pt: filiga.dim_pt, colore: filiga.colore, opacita: pctA255(filiga.opacita), rotazione: filiga.rotazione };
       }
       if (!els.length && !cps.length && !fil) { esito = { ok: false, msg: "Aggiungi almeno un elemento." }; salvando = false; return; }
       const r = await salvaEditor(s.id, els, fil, cps);
@@ -402,10 +414,33 @@
             style={`width:${larghezzaPx}px; height:${pageHpx}px;`}
             onmousemove={suMovimento} onclick={suClic}>
             {#if imgUrl}<img src={imgUrl} alt={`Pagina ${pagina + 1}`} draggable="false" />{/if}
-            {#each elementiPagina as x}
-              <div class="marker" style={`left:${x.x_mm * pxPerMm}px; top:${x.y_mm * pxPerMm}px;`} title={x.tipo}>
-                {x.tipo === "testo" ? "T" : "🖼"}
-              </div>
+            {#each elementiPagina as x (x.id)}
+              {#if x.tipo === "testo"}
+                <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
+                <div
+                  class="txt-el"
+                  style={`left:${x.x_mm * pxPerMm}px; top:${x.y_mm * pxPerMm}px; font-size:${x.dim_pt * pxPerPt}px; color:${x.colore}; opacity:${(x.opacita ?? 100) / 100};`}
+                  contenteditable="true"
+                  spellcheck="false"
+                  role="textbox"
+                  tabindex="-1"
+                  title="Doppio clic / scrivi per modificare il testo"
+                  onpointerdown={(e) => e.stopPropagation()}
+                  onclick={(e) => e.stopPropagation()}
+                  onblur={(e) => fineModifica(x, e)}
+                  onkeydown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.currentTarget.blur(); } }}
+                >{x.testo}</div>
+              {:else if x.png_base64}
+                <img
+                  class="img-el"
+                  src={`data:image/png;base64,${x.png_base64}`}
+                  alt={x.nomeFirma ?? 'immagine'}
+                  draggable="false"
+                  style={`left:${x.x_mm * pxPerMm}px; top:${x.y_mm * pxPerMm}px; width:${(x.larghezza_mm ?? 40) * pxPerMm}px; height:${(x.altezza_mm ?? 20) * pxPerMm}px; opacity:${(x.opacita ?? 100) / 100};`}
+                />
+              {:else}
+                <div class="marker" style={`left:${x.x_mm * pxPerMm}px; top:${x.y_mm * pxPerMm}px;`} title={x.tipo}>🖼</div>
+              {/if}
             {/each}
             {#each campiPagina as c}
               <div class="campo-box" style={`left:${c.x_mm * pxPerMm}px; top:${c.y_mm * pxPerMm}px; width:${c.larghezza_mm * pxPerMm}px; height:${c.altezza_mm * pxPerMm}px;`}>{c.nome}</div>
@@ -480,6 +515,15 @@
   .pagina { position: relative; background: #fff; cursor: crosshair; box-shadow: 0 0 0 1px rgba(0,0,0,0.3); }
   .pagina img { display: block; width: 100%; height: 100%; user-select: none; }
   .marker { position: absolute; transform: translate(-2px, -2px); background: var(--accento); color: #fff; font-size: 11px; min-width: 16px; height: 16px; border-radius: 3px; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+  /* Testo a grandezza reale, modificabile sulla pagina */
+  .txt-el {
+    position: absolute; line-height: 1; white-space: pre; font-family: Helvetica, Arial, sans-serif;
+    cursor: text; outline: none; transform: translateY(0); padding: 0;
+  }
+  .txt-el:hover { outline: 1px dashed rgba(30,111,216,0.6); outline-offset: 1px; }
+  .txt-el:focus { outline: 1px solid var(--accento); outline-offset: 1px; background: rgba(30,111,216,0.06); }
+  /* Anteprima reale di immagini e firme */
+  .img-el { position: absolute; pointer-events: none; object-fit: fill; }
   .campo-box { position: absolute; border: 1.5px dashed #1e6fd8; background: rgba(30,111,216,0.12); color: #1e6fd8; font-size: 10px; padding: 1px 3px; box-sizing: border-box; pointer-events: none; overflow: hidden; }
   .red-box { position: absolute; background: rgba(0,0,0,0.82); border: 1px solid #c81e1e; box-sizing: border-box; pointer-events: none; }
   .salva.rosso { background: #c81e1e; }
