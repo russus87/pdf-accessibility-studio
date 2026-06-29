@@ -30,6 +30,8 @@ class GestoreSchede {
   misura = $state(false);
   /** evidenziazioni da disegnare sul visore: { id, pagina, rettangoli, tipo } */
   evidenziazioni = $state(null);
+  /** mostra la procedura guidata di remediation accessibilità */
+  guida = $state(false);
 
   _contatore = 0;
 

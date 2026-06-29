@@ -94,6 +94,7 @@
       <h2>PDF Accessibility Studio</h2>
       <p>Apri un PDF per iniziare, o trascinalo nella finestra.</p>
       <button onclick={() => schede.apriDaDialogo()}>Apri PDF</button>
+      <p class="kbd-hint">Premi <kbd>Ctrl</kbd>+<kbd>K</kbd> per la palette dei comandi · <button class="link-guida" onclick={() => (schede.guida = true)}>Remediation guidata</button></p>
       {#if recenti.length}
         <div class="recenti">
           <div class="rec-tit">Recenti</div>
@@ -188,6 +189,31 @@
     padding: 10px 20px;
     cursor: pointer;
     font-size: 14px;
+  }
+  .kbd-hint {
+    margin-top: 14px;
+    font-size: 12px;
+    color: var(--testo-soft);
+  }
+  .kbd-hint kbd {
+    background: var(--scheda);
+    border: 1px solid var(--bordo);
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-size: 11px;
+    font-family: ui-monospace, monospace;
+  }
+  .link-guida {
+    background: transparent;
+    border: none;
+    color: var(--accento);
+    cursor: pointer;
+    font-size: 12px;
+    padding: 0;
+    margin: 0;
+  }
+  .link-guida:hover {
+    text-decoration: underline;
   }
   .recenti {
     margin-top: 24px;

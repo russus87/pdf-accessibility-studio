@@ -493,6 +493,25 @@ Alt, cambio ruolo e riordino su un PDF taggato costruito al volo.
   allo strumento giusto: Alt (AI), gerarchia titoli (Ruoli), tabelle, auto-tag.
   Nuovo `schede.apriPannello(nome, modo)` + consumo del modo in PannelloTag.
 
+## Fase 57 — Palette dei comandi (Ctrl+K) ✅
+
+- ✅ `PalettaComandi.svelte` (montata in `App.svelte`): overlay con ricerca testuale
+  ed esecuzione di tutte le azioni (apri/chiudi file, viste centrali, misura,
+  apertura di ogni pannello, scorciatoie a Tag→Alt/Riordina). Navigazione con
+  frecce + Invio, Esc per chiudere; comandi filtrati per disponibilità (PDF aperto).
+
+## Fase 58 — Procedura guidata + note di rilascio ✅
+
+- ✅ `ProceduraGuidata.svelte`: wizard a 6 passi (apri → valida → correzione
+  automatica → alt → titoli/ordine → report) che apre lo strumento giusto a ogni
+  passo (`schede.guida`, lanciabile da palette e dallo stato vuoto del visore).
+- ✅ `NoteRilascio.svelte`: dopo un aggiornamento mostra le novità della versione
+  corrente una sola volta (ricorda `ultimaVersioneVista` in localStorage, via
+  `getVersion`). Note incluse per le versioni 1.9.2 → 1.13.0.
+- ✅ Stato vuoto del visore: suggerimento Ctrl+K e avvio della remediation guidata.
+- Nota: le barre di avanzamento *determinate* richiederebbero eventi di progresso
+  dal backend; restano gli stati "in corso" già presenti (OCR, batch, ecc.).
+
 ## Idee future ⏳
 
 - ⏳ Riordino ordine di lettura *annidato* (estensione di `correzione::riordina`)

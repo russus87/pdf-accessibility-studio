@@ -78,6 +78,9 @@
   import Confronto from "./components/Confronto.svelte";
   import Creatore from "./components/Creatore.svelte";
   import Editor from "./components/Editor.svelte";
+  import PalettaComandi from "./components/PalettaComandi.svelte";
+  import NoteRilascio from "./components/NoteRilascio.svelte";
+  import ProceduraGuidata from "./components/ProceduraGuidata.svelte";
 
   // Pannelli laterali ammessi (chi richiede un PDF e chi no).
   const PANNELLI = ["anteprime", "pagine", "indice", "metadati", "cerca", "valida", "correggi", "tag", "autotag", "moduli", "leggi", "ai", "strumenti", "libreria"];
@@ -139,6 +142,9 @@
   </div>
 
   <BarraStato />
+  <PalettaComandi />
+  <ProceduraGuidata />
+  <NoteRilascio />
 </main>
 
 <style>
