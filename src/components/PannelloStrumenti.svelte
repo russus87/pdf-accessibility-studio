@@ -237,10 +237,14 @@
             <option value="filigrana">Filigrana (testo)</option>
             <option value="numerazione">Numerazione</option>
             <option value="valida">Validazione (report HTML)</option>
+            <option value="accessibile">Rendi accessibile (auto)</option>
           </select>
         </label>
         {#if batchOp === "filigrana" || batchOp === "numerazione"}
           <label>Testo<input type="text" bind:value={batchTesto} /></label>
+        {:else if batchOp === "accessibile"}
+          <label>Lingua<input type="text" bind:value={batchTesto} placeholder="it" maxlength="5" /></label>
+          <p style="margin:4px 0 0;font-size:11px;color:var(--testo-soft);line-height:1.4">Imposta lingua, titolo (dal nome file), DisplayDocTitle e id PDF/UA su ogni file.</p>
         {/if}
         <button class="vai" onclick={eseguiBatch} disabled={batchInCorso}>
           {batchInCorso ? "Elaborazione…" : "Scegli PDF e cartella, esegui…"}

@@ -512,8 +512,25 @@ Alt, cambio ruolo e riordino su un PDF taggato costruito al volo.
 - Nota: le barre di avanzamento *determinate* richiederebbero eventi di progresso
   dal backend; restano gli stati "in corso" già presenti (OCR, batch, ecc.).
 
+## Fase 60 — Batch remediation accessibilità ✅
+
+- ✅ Nuova operazione **"accessibile"** nel comando `batch` (`comandi.rs::esegui_batch`):
+  applica l'auto-remediation (`correzione::auto`: lingua, titolo dal nome file,
+  DisplayDocTitle, id PDF/UA) a tutti i file scelti, salvando `*-accessibile.pdf`
+  e riportando errori prima→dopo. Lingua opzionale (default "it").
+- ✅ UI: opzione "Rendi accessibile (auto)" in Strumenti → Batch, con campo lingua.
+
+## Fase 59 — Localizzazione inglese ⏳ (rimandata)
+
+- L'intera UI è in italiano in ~25 componenti: una i18n completa è un refactor
+  ampio e va affrontato come lavoro dedicato (estrazione stringhe + store di
+  traduzione reattivo + selettore lingua), non frettolosamente. Lasciata a parte
+  per non consegnare un'app tradotta a metà.
+
 ## Idee future ⏳
 
+- ⏳ Localizzazione inglese (Fase 59) — vedi sopra
+- ⏳ Report VPAT formale (il report Matterhorn HTML già documenta la conformità WCAG)
 - ⏳ Riordino ordine di lettura *annidato* (estensione di `correzione::riordina`)
 - ⏳ Overlay numerato dell'ordine di lettura direttamente sul visore
 - ⏳ Anteprime con drag&drop per riordino, miniature nel pannello Pagine

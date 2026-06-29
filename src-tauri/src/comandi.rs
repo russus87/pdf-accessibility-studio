@@ -1091,6 +1091,14 @@ fn esegui_batch(src: &std::path::Path, op: &str, testo: Option<&str>, out_dir: &
             let errori = report.esiti.iter().filter(|e| matches!(e.gravita, pdfa_core::validazione::Gravita::Errore)).count();
             Ok(format!("{errori} errori"))
         }
+        "accessibile" => {
+            // Auto-remediation: lingua, titolo (dal nome file), DisplayDocTitle,
+            // id PDF/UA; `testo` opzionale = codice lingua (default "it").
+            let dest = out_dir.join(format!("{stem}-accessibile.pdf"));
+            let lang = testo.filter(|t| !t.trim().is_empty()).unwrap_or("it");
+            let (prima, dopo) = pdfa_core::correzione::auto(src, &dest, lang, stem).map_err(|e| e.to_string())?;
+            Ok(format!("errori {prima} → {dopo}"))
+        }
         _ => Err(format!("operazione sconosciuta: {op}")),
     }
 }
