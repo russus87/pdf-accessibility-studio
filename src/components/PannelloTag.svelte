@@ -27,6 +27,14 @@
   });
   const figure = $derived(info ? righe(info.radice).filter((r) => r.ruolo === "Figure" && r.riferimento) : []);
 
+  // Modalità richiesta dall'esterno (flusso guidato dalla validazione).
+  $effect(() => {
+    if (schede.pannello === "tag" && schede.pannelloModo) {
+      modo = schede.pannelloModo;
+      schede.pannelloModo = null;
+    }
+  });
+
   const RUOLI = ["P","H1","H2","H3","H4","H5","H6","Figure","Table","TR","TH","TD","L","LI","Span","Link","Caption","Note"];
 
   $effect(() => {
@@ -46,7 +54,7 @@
         info = r;
         ordineTop = r.radice
           .filter((n) => n.riferimento)
-          .map((n) => ({ riferimento: n.riferimento, ruolo: n.ruolo }));
+          .map((n) => ({ riferimento: n.riferimento, ruolo: n.ruolo, pagina: n.pagina }));
       })
       .catch((e) => !annullato && (errore = String(e)))
       .finally(() => !annullato && (caricamento = false));
@@ -123,6 +131,17 @@
     const a = ordineTop;
     [a[i], a[j]] = [a[j], a[i]];
     ordineTop = [...a];
+  }
+
+  // Riordino per trascinamento.
+  let trascIdx = $state(null);
+  function dragRilascia(i) {
+    if (trascIdx == null || trascIdx === i) { trascIdx = null; return; }
+    const a = [...ordineTop];
+    const [el] = a.splice(trascIdx, 1);
+    a.splice(i, 0, el);
+    ordineTop = a;
+    trascIdx = null;
   }
 
   async function salvaOrdine() {
@@ -336,11 +355,18 @@
       <button class="salva" onclick={salvaAlt}>Salva copia con testi alternativi…</button>
 
     {:else if modo === "riordina"}
-      <p class="suggerimento">Riordina i blocchi di primo livello: cambia l'ordine di lettura logico.</p>
+      <p class="suggerimento">Ordine di lettura logico dei blocchi di primo livello: <b>trascina</b> per riordinare (o usa ▲▼). Il numero è la posizione in lettura. Clicca il ruolo per evidenziare il blocco sul PDF.</p>
       <ul class="editor">
-        {#each ordineTop as e, i}
-          <li class="riordina">
-            <span class="ruolo">{e.ruolo}</span>
+        {#each ordineTop as e, i (e.riferimento)}
+          <!-- svelte-ignore a11y_no_static_element_interactions -->
+          <li class="riordina" class:trasc={trascIdx === i}
+            draggable="true"
+            ondragstart={() => (trascIdx = i)}
+            ondragover={(ev) => ev.preventDefault()}
+            ondrop={() => dragRilascia(i)}
+            ondragend={() => (trascIdx = null)}>
+            <span class="ordn">{i + 1}</span>
+            <button class="vai" onclick={() => vaiAElemento(e)} title="Evidenzia sul PDF">{e.ruolo}{#if e.pagina != null} · p.{e.pagina + 1}{/if}</button>
             <span class="frecce">
               <button onclick={() => muovi(i, -1)} disabled={i === 0} aria-label="Su">▲</button>
               <button onclick={() => muovi(i, 1)} disabled={i === ordineTop.length - 1} aria-label="Giù">▼</button>
@@ -474,8 +500,36 @@
     padding: 4px 8px;
   }
   li.riordina {
-    justify-content: space-between;
+    cursor: grab;
+    border: 1px solid transparent;
   }
+  li.riordina:hover { background: var(--scheda); }
+  li.riordina.trasc { opacity: 0.5; border-color: var(--accento); }
+  .ordn {
+    flex: none;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-size: 11px;
+    font-weight: 700;
+    background: var(--accento);
+    color: #fff;
+  }
+  li.riordina .vai {
+    flex: 1;
+    text-align: left;
+    background: transparent;
+    border: none;
+    color: var(--accento);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0;
+  }
+  li.riordina .vai:hover { text-decoration: underline; }
+  li.riordina .frecce { margin-left: auto; }
   select {
     background: var(--scheda);
     color: var(--testo);

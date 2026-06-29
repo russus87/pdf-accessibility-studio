@@ -1,9 +1,41 @@
 <script>
   // Pannello validazione accessibilita': mostra gli esiti delle regole.
   import { schede } from "../lib/schede.svelte.js";
-  import { valida, salvaReportValidazione, ocrInfo, eseguiOcr, contrasto, matterhorn, salvaReportMatterhorn } from "../lib/api.js";
+  import { valida, salvaReportValidazione, ocrInfo, eseguiOcr, contrasto, matterhorn, salvaReportMatterhorn, autoCorreggi } from "../lib/api.js";
 
   const s = $derived(schede.schedaAttiva);
+
+  // Mappa regola → strumento di correzione (salto guidato al pannello giusto).
+  const FIX = {
+    "Testo alternativo immagini": { pannello: "tag", modo: "alt", label: "Aggiungi testo alternativo" },
+    "Ordine dei titoli": { pannello: "tag", modo: "ruoli", label: "Sistema gerarchia titoli" },
+    "Struttura dei titoli": { pannello: "tag", modo: "ruoli", label: "Sistema i titoli" },
+    "Intestazioni tabelle": { pannello: "tag", modo: "tabelle", label: "Correggi intestazioni tabelle" },
+    "Righe delle tabelle": { pannello: "tag", modo: "tabelle", label: "Correggi tabelle" },
+    "Struttura liste": { pannello: "tag", modo: "ruoli", label: "Correggi nei Tag" },
+    "Testo dei link": { pannello: "tag", modo: "ruoli", label: "Correggi nei Tag" },
+    "Documento taggato": { pannello: "autotag", modo: null, label: "Genera tag automatici" },
+  };
+
+  // Correzione automatica (lingua, titolo, DisplayDocTitle, id PDF/UA).
+  let langFix = $state("it");
+  let autoInCorso = $state(false);
+  async function autoFix() {
+    if (!s) return;
+    esito = null;
+    autoInCorso = true;
+    try {
+      const r = await autoCorreggi(s.id, langFix);
+      if (r) {
+        esito = `Correzione automatica: errori ${r.errori_prima} → ${r.errori_dopo}. Apro la copia corretta…`;
+        await schede.apri(r.dest); // diventa la scheda attiva → rivalida
+      }
+    } catch (e) {
+      esito = `Errore: ${e}`;
+    } finally {
+      autoInCorso = false;
+    }
+  }
   let vista = $state("validazione"); // "validazione" | "matterhorn"
   let mh = $state(null);
   let mhCaricamento = $state(false);
@@ -184,13 +216,30 @@
       <span class="badge err">{report.errori} errori</span>
       <span class="badge avv">{report.avvisi} avvisi</span>
     </div>
+    {#if report.errori + report.avvisi > 0}
+      <div class="guida-fix">
+        <div class="gf-tit">🔧 Correzione guidata</div>
+        <div class="gf-riga">
+          <label>Lingua
+            <input type="text" bind:value={langFix} maxlength="5" style="width:54px" />
+          </label>
+          <button onclick={autoFix} disabled={autoInCorso}>
+            {autoInCorso ? "Correzione…" : "Correggi automaticamente"}
+          </button>
+        </div>
+        <div class="gf-nota">Imposta lingua, titolo, DisplayDocTitle e id PDF/UA, poi rivalida sulla copia. Per gli altri problemi usa i pulsanti «Correggi» qui sotto.</div>
+      </div>
+    {/if}
     <ul>
       {#each report.esiti as e}
         <li class={e.gravita}>
           <span class="segno {e.gravita}">{icona[e.gravita]}</span>
-          <div>
+          <div class="corpo">
             <div class="regola">{e.regola}</div>
             <div class="msg">{e.messaggio}</div>
+            {#if e.gravita !== "ok" && FIX[e.regola]}
+              <button class="fixbtn" onclick={() => schede.apriPannello(FIX[e.regola].pannello, FIX[e.regola].modo)}>{FIX[e.regola].label} →</button>
+            {/if}
           </div>
         </li>
       {/each}
@@ -305,6 +354,34 @@
     gap: 8px;
     padding: 12px 14px;
   }
+  .guida-fix {
+    margin: 0 14px 8px;
+    padding: 10px 12px;
+    background: var(--scheda);
+    border: 1px solid var(--bordo);
+    border-radius: 8px;
+  }
+  .gf-tit { font-weight: 600; font-size: 13px; margin-bottom: 6px; }
+  .gf-riga { display: flex; align-items: center; gap: 10px; }
+  .gf-riga label { font-size: 12px; color: var(--testo-soft); display: inline-flex; align-items: center; gap: 6px; }
+  .gf-riga input {
+    background: var(--sfondo, var(--scheda)); color: var(--testo);
+    border: 1px solid var(--bordo); border-radius: 6px; padding: 4px 6px;
+  }
+  .gf-riga button {
+    background: var(--accento); color: #fff; border: none; border-radius: 6px;
+    padding: 6px 12px; cursor: pointer; font-size: 12px;
+  }
+  .gf-riga button:disabled { opacity: 0.6; cursor: default; }
+  .gf-nota { margin-top: 6px; font-size: 11px; color: var(--testo-soft); line-height: 1.4; }
+  .corpo { display: flex; flex-direction: column; gap: 2px; }
+  .fixbtn {
+    align-self: flex-start; margin-top: 6px;
+    background: transparent; color: var(--accento);
+    border: 1px solid var(--accento); border-radius: 6px;
+    padding: 3px 10px; cursor: pointer; font-size: 12px;
+  }
+  .fixbtn:hover { background: var(--accento); color: #fff; }
   .badge {
     padding: 3px 10px;
     border-radius: 12px;

@@ -475,10 +475,27 @@ Alt, cambio ruolo e riordino su un PDF taggato costruito al volo.
 - Nota backend: tutti i comandi erano già presenti (`albero_tag`,
   `suggerisci_alt`, `correggi`); Fase 56 è solo UI di assistenza/batch.
 
+## Fase 54 — Editor ordine di lettura (visuale) ✅
+
+- ✅ `PannelloTag.svelte` modalità **Riordina**: ordine di lettura dei blocchi di
+  primo livello con **drag-and-drop** (oltre alle frecce ▲▼), numero di posizione
+  e salto-evidenzia del blocco sul PDF (`riquadro_tag` + `schede.evidenzia`).
+  Salvataggio via `riordina()`.
+- Limite noto: il backend `correzione::riordina` riordina solo il primo livello;
+  il riordino *annidato* resta una futura estensione del core Rust.
+
+## Fase 55 — Loop valida→correggi ✅
+
+- ✅ `PannelloValidazione.svelte`: box **Correzione guidata** con correzione
+  automatica (lingua/titolo/DisplayDocTitle/id PDF/UA via `auto_correggi`) che
+  apre la copia corretta e **rivalida** in automatico (mostra errori prima→dopo).
+- ✅ Ogni esito (errore/avviso) noto mostra un pulsante **«Correggi →»** che salta
+  allo strumento giusto: Alt (AI), gerarchia titoli (Ruoli), tabelle, auto-tag.
+  Nuovo `schede.apriPannello(nome, modo)` + consumo del modo in PannelloTag.
+
 ## Idee future ⏳
 
-- ⏳ Editor visuale ordine di lettura con overlay numerato (Fase 54: riordino
-  annidato richiede estensione di `correzione::riordina`)
-- ⏳ Loop valida→clicca→correggi nel pannello Validazione (Fase 55)
+- ⏳ Riordino ordine di lettura *annidato* (estensione di `correzione::riordina`)
+- ⏳ Overlay numerato dell'ordine di lettura direttamente sul visore
 - ⏳ Anteprime con drag&drop per riordino, miniature nel pannello Pagine
 - ⏳ Estrazione testo MCID con font CID complessi

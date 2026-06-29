@@ -21,6 +21,9 @@ class GestoreSchede {
    *  "anteprime"|"pagine"|"metadati"|"valida"|"correggi"|"tag"|"autotag"|
    *  "moduli"|"indice"|"leggi"|"ai"|"cerca"|"strumenti"|"libreria" */
   pannello = $state(null);
+  /** modalità richiesta per il pannello appena aperto (consumata dal pannello,
+   *  es. PannelloTag "alt"|"ruoli"|"tabelle"); poi azzerata. */
+  pannelloModo = $state(null);
   /** vista centrale speciale per le schede PDF: null | "editor" | "confronta" */
   modoCentro = $state(null);
   /** mostra il righello metrico e lo strumento di misura sul visore */
@@ -33,6 +36,13 @@ class GestoreSchede {
   /** Apre/chiude un pannello laterale (toggle). */
   mostraPannello(nome) {
     this.pannello = this.pannello === nome ? null : nome;
+  }
+
+  /** Apre un pannello laterale impostandone la modalità iniziale (per i flussi
+   *  guidati, es. dalla validazione → Tag in modalità Alt). */
+  apriPannello(nome, modo = null) {
+    this.pannello = nome;
+    this.pannelloModo = modo;
   }
 
   /** Imposta (o azzera) la vista centrale speciale per i PDF. */
